@@ -1,0 +1,19 @@
+# Local Postgres for development. Copy .env.example → .env and set POSTGRES_* to match DATABASE_URL.
+# Start: docker compose up -d
+# Stop:  docker compose down
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: discord-fantasy-bot-db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-discord_fantasy_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-discord_fantasy_bot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Linked Discord account + optional Sleeper identity (provider-agnostic IDs in app code).
+model User {
+  id               String   @id @default(cuid())
+  discordUserId    String   @unique @map("discord_user_id")
+  sleeperUsername  String?  @map("sleeper_username")
+  sleeperUserId    String?  @map("sleeper_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  subscriptions NotificationSubscription[]
+
+  @@map("users")
+}
+
+/// Where to send which alerts: one row per (user, destination, scope).
+/// destination: channel if guildId+channelId set; future DM if isDm true and channel null.
+model NotificationSubscription {
+  id        String @id @default(cuid())
+  userId    String @map("user_id")
+  /// Discord guild (server), null when not tied to a guild (e.g. global default).
+  guildId   String? @map("guild_id")
+  /// Discord text channel; null with isDm means direct message to the user.
+  channelId String? @map("channel_id")
+  isDm      Boolean @default(false) @map("is_dm")
+
+  /// Sleeper league this subscription applies to; null = all leagues for this user (product choice).
+  provider          String  @default("sleeper") @map("provider")
+  sleeperLeagueId   String? @map("sleeper_league_id")
+  sleeperDraftId    String? @map("sleeper_draft_id")
+
+  /// Subset of NotificationCategory string values; empty = none until user configures.
+  categories String[] @map("categories")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([guildId, channelId])
+  @@index([sleeperLeagueId])
+  @@map("notification_subscriptions")
+}
