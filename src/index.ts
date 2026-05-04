@@ -1,7 +1,9 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
-import { commands, handleInteraction } from "./bot/commands.js";
+import { commands, handleInteraction, slashEphemeral } from "./bot/commands.js";
 import { prisma } from "./db.js";
+import { runHourlyDigest } from "./jobs/hourly.js";
+import { log } from "./logging.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -15,14 +17,25 @@ if (!token || !clientId) {
 const discordToken = token;
 const discordClientId = clientId;
 
+function slashCommandNames(): string[] {
+  return commands.map((c) => (c as { name: string }).name).filter(Boolean);
+}
+
 async function registerSlashCommands(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(discordToken);
+  const names = slashCommandNames().join(", ");
   if (guildId) {
     await rest.put(Routes.applicationGuildCommands(discordClientId, guildId), { body: commands });
-    console.log(`Registered ${commands.length} guild commands for ${guildId}`);
+    console.log(`Registered ${commands.length} guild slash commands for guild ${guildId}: ${names}`);
+    // DMs and “this command is outdated” errors use **global** command definitions. Guild-only registration
+    // never updates those, so slash in DM stays stale. Always mirror the same commands globally.
+    await rest.put(Routes.applicationCommands(discordClientId), { body: commands });
+    console.log(
+      `Registered ${commands.length} global slash commands (for DMs / other servers; may take up to ~1h to propagate): ${names}`,
+    );
   } else {
     await rest.put(Routes.applicationCommands(discordClientId), { body: commands });
-    console.log(`Registered ${commands.length} global commands (can take up to an hour to appear)`);
+    console.log(`Registered ${commands.length} global slash commands (may take up to ~1h to show everywhere): ${names}`);
   }
 }
 
@@ -30,6 +43,15 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Ready as ${c.user.tag}`);
+  const hourMs = 3_600_000;
+  setInterval(() => {
+    void runHourlyDigest(c).catch((err) =>
+      log.error("hourly_digest_failed", { err: err instanceof Error ? err.message : String(err) }),
+    );
+  }, hourMs);
+  void runHourlyDigest(c).catch((err) =>
+    log.error("hourly_digest_initial_failed", { err: err instanceof Error ? err.message : String(err) }),
+  );
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -37,18 +59,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     await handleInteraction(interaction);
   } catch (e) {
-    console.error(e);
+    log.error("interaction_handler_failed", { err: e instanceof Error ? e.message : String(e) });
     const msg = e instanceof Error ? e.message : "Error";
     if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content: msg, ephemeral: true }).catch(() => {});
+      await interaction.followUp({ content: msg, ...slashEphemeral(interaction) }).catch(() => {});
     } else {
-      await interaction.reply({ content: msg, ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: msg, ...slashEphemeral(interaction) }).catch(() => {});
     }
   }
 });
 
+console.log("[startup] Registering slash commands…");
 await registerSlashCommands();
+console.log("[startup] Connecting to database…");
 await prisma.$connect();
+console.log("[startup] Logging in to Discord…");
 await client.login(discordToken);
 
 async function shutdown(): Promise<void> {

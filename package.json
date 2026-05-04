@@ -4,12 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "tsc",
+    "test": "node --test --import tsx \"src/**/*.test.ts\"",
+    "audit:slash-desc": "node scripts/audit-slash-desc-lengths.mjs",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "sync:players": "tsx src/scripts/sleeper-sync.ts players",
+    "sync:stats-week": "tsx src/scripts/sleeper-sync.ts stats-week"
   },
   "engines": {
     "node": ">=20"

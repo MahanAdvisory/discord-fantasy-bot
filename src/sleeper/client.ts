@@ -1,4 +1,4 @@
-const V1 = "https://api.sleeper.app/v1";
+export const V1 = "https://api.sleeper.app/v1";
 
 export interface SleeperUser {
   user_id: string;
@@ -24,6 +24,24 @@ export interface SleeperLeague {
   sport: string;
   total_rosters: number;
   draft_id?: string;
+  /** Slot order matches each roster's `starters` array (QB, RB, FLEX, SUPER_FLEX, …). */
+  roster_positions?: string[] | null;
+}
+
+export interface SleeperRoster {
+  roster_id: number;
+  owner_id: string | null;
+  players?: string[] | null;
+  starters?: string[] | null;
+  reserve?: string[] | null;
+}
+
+export interface SleeperTradedPick {
+  season?: string;
+  round?: number;
+  roster_id?: number;
+  owner_id?: number;
+  previous_owner_id?: number;
 }
 
 export interface SleeperDraft {
@@ -68,4 +86,12 @@ export async function getUserDrafts(userId: string, season: string): Promise<Sle
 
 export async function getLeague(leagueId: string): Promise<SleeperLeague> {
   return getJson<SleeperLeague>(`${V1}/league/${leagueId}`);
+}
+
+export async function getLeagueRosters(leagueId: string): Promise<SleeperRoster[]> {
+  return getJson<SleeperRoster[]>(`${V1}/league/${leagueId}/rosters`);
+}
+
+export async function getLeagueTradedPicks(leagueId: string): Promise<SleeperTradedPick[]> {
+  return getJson<SleeperTradedPick[]>(`${V1}/league/${leagueId}/traded_picks`);
 }

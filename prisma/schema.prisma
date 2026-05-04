@@ -21,32 +21,150 @@ model User {
   @@map("users")
 }
 
-/// Where to send which alerts: one row per (user, destination, scope).
-/// destination: channel if guildId+channelId set; future DM if isDm true and channel null.
+/// One row = one (league scope × category × destination) route.
 model NotificationSubscription {
   id        String @id @default(cuid())
   userId    String @map("user_id")
-  /// Discord guild (server), null when not tied to a guild (e.g. global default).
   guildId   String? @map("guild_id")
-  /// Discord text channel; null with isDm means direct message to the user.
   channelId String? @map("channel_id")
   isDm      Boolean @default(false) @map("is_dm")
 
-  /// Sleeper league this subscription applies to; null = all leagues for this user (product choice).
-  provider          String  @default("sleeper") @map("provider")
-  sleeperLeagueId   String? @map("sleeper_league_id")
-  sleeperDraftId    String? @map("sleeper_draft_id")
+  routeNamespace String @map("route_namespace")
 
-  /// Subset of NotificationCategory string values; empty = none until user configures.
-  categories String[] @map("categories")
+  provider String @default("sleeper") @map("provider")
+  sleeperLeagueScope String @map("sleeper_league_scope")
+  sleeperDraftId     String? @map("sleeper_draft_id")
+
+  category String @map("category")
+
+  permissionNotifiedAt DateTime? @map("permission_notified_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([routeNamespace, sleeperLeagueScope, category])
   @@index([userId])
   @@index([guildId, channelId])
-  @@index([sleeperLeagueId])
+  @@index([sleeperLeagueScope])
   @@map("notification_subscriptions")
+}
+
+/// Full Sleeper NFL player record from GET /v1/players/nfl (keyed by player_id).
+model SleeperPlayer {
+  playerId  String   @id @map("player_id")
+  data      Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sleeper_players")
+}
+
+/// Per-player stats payloads from api.sleeper.com (season or weekly grouping).
+model SleeperPlayerStats {
+  id String @id @default(cuid())
+
+  playerId   String @map("player_id")
+  season     String
+  seasonType String @map("season_type")
+  /// "season" | "week" — matches Sleeper `grouping` query param.
+  grouping String
+  /// Week number when `grouping` is week-based; **-1** when storing season rollup rows (avoids UNIQUE NULL issues in Postgres).
+  week Int @default(-1) @map("week")
+
+  stats Json
+
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  @@unique([playerId, season, seasonType, grouping, week])
+  @@index([playerId])
+  @@index([season])
+  @@map("sleeper_player_stats")
+}
+
+/// Bulk stats/projection-style JSON from list endpoints (whole season/week payloads for archival).
+model SleeperStatsSnapshot {
+  id String @id @default(cuid())
+
+  /// e.g. stats_bulk_week, stats_bulk_season — helps identify source endpoint.
+  kind       String
+  season     String
+  seasonType String @map("season_type")
+  /// **-1** = whole-season / non-week bulk snapshot.
+  week       Int          @default(-1)
+
+  payload Json
+
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  @@unique([kind, season, seasonType, week])
+  @@index([season])
+  @@map("sleeper_stats_snapshots")
+}
+
+/// Simple key/value for sync cursors (e.g. last full player catalog sync).
+model AppMeta {
+  key   String @id
+  value String
+
+  @@map("app_meta")
+}
+
+/// Dedupe Sleeper transaction notifications per league NFL week (see GET .../transactions/:round).
+model LeaguePollCursor {
+  leagueId String @map("league_id")
+  season   String
+  week     Int
+
+  /// Baseline: max `created` ms from Sleeper transactions processed for this poll cycle.
+  lastTransactionCreatedMs BigInt @default(0) @map("last_transaction_created_ms")
+
+  @@id([leagueId, season, week])
+  @@map("league_poll_cursors")
+}
+
+/// Prevents double-posting when Sleeper bumps `created` on the same `transaction_id` (e.g. draft pick enrichment).
+model LeagueTransactionNotified {
+  leagueId       String   @map("league_id")
+  transactionId  String   @map("transaction_id")
+  notifiedAt     DateTime @default(now()) @map("notified_at")
+
+  @@id([leagueId, transactionId])
+  @@map("league_transaction_notified")
+}
+
+/// Dedupe draft picks / on-the-clock alerts per draft room.
+model DraftPollCursor {
+  draftId String @id @map("draft_id")
+
+  /// Number of picks in the array last time we emitted draft_status updates.
+  lastSeenPickCount Int @default(0) @map("last_seen_pick_count")
+
+  /// Last `pick_no` we used for a draft_on_the_clock notification (Sleeper global pick number).
+  lastOnClockPickNo Int @default(0) @map("last_on_clock_pick_no")
+
+  @@map("draft_poll_cursors")
+}
+
+/// Append-only audit of completed notification fan-outs (transactions, draft pick lines, on-the-clock DMs).
+model NotificationEventJournal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  eventKey String @unique @map("event_key")
+  kind     String
+
+  leagueId      String? @map("league_id")
+  draftId       String? @map("draft_id")
+  transactionId String? @map("transaction_id")
+  season        String?
+  week          Int?
+  pickNo        Int?    @map("pick_no")
+
+  targetCount Int @default(0) @map("target_count")
+  meta        Json?
+
+  @@index([leagueId])
+  @@index([createdAt])
+  @@map("notification_event_journal")
 }
