@@ -1,11 +1,18 @@
+import {
+  sleeperDraftUrlPlain,
+  sleeperLeagueTeamUrlPlain,
+  sleeperLeagueUrlPlain,
+} from "../../domain/sleeperLinks.js";
+
+/** Discord markdown: angle-bracket URLs suppress preview embed spam. */
 export function sleeperDraftUrl(draftId: string): string {
-  return `<https://sleeper.com/draft/nfl/${draftId}>`;
+  return `<${sleeperDraftUrlPlain(draftId)}>`;
 }
 
 export function sleeperLeagueUrl(leagueId: string): string {
-  return `<https://sleeper.com/leagues/${leagueId}>`;
+  return `<${sleeperLeagueUrlPlain(leagueId)}>`;
 }
 
 export function sleeperLeagueTeamUrl(leagueId: string): string {
-  return `<https://sleeper.com/leagues/${leagueId}/team>`;
+  return `<${sleeperLeagueTeamUrlPlain(leagueId)}>`;
 }

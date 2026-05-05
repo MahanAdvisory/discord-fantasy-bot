@@ -115,6 +115,25 @@ State is stored in `league_poll_cursors` and `draft_poll_cursors` so restarts do
 
 On-demand **`/updates`** is unchanged (snapshot only). **Lineup / `league_scores` alerts** are not implemented in the poller yet.
 
+## Web dashboard (`web/`)
+
+Next.js app: Discord login, Sleeper league/draft overview, Stripe subscribe/manage billing. See **[docs/web-setup.md](docs/web-setup.md)**.
+
+```bash
+npm install
+npm run web:dev
+```
+
+Requires `DISCORD_CLIENT_SECRET` (OAuth2 client secret, not the bot token) and the rest of the variables listed in `docs/web-setup.md`.
+
+## Billing gate (Discord bot)
+
+When **`STRIPE_SECRET_KEY`** is set, slash commands require an active Stripe subscription except **`/link`** (override list via `COMMERCIAL_GATE_ALLOWLIST_COMMANDS`). With Stripe unset, the gate stays **open** so existing deployments keep working. Use **`BILLING_URL`** or **`NEXT_PUBLIC_APP_URL`** in the bot env so blocked users see your dashboard URL.
+
+## Multi-provider API notes
+
+See **[docs/platform-apis.md](docs/platform-apis.md)** and **`scripts/spikes/`** for ESPN/Yahoo investigation scripts.
+
 ## Production note
 
 Phase 1 targets **local** development. Later deployment is intended as a **single VPS/VM** with the same env-driven configuration.

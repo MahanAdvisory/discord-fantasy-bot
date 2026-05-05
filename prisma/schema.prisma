@@ -16,9 +16,36 @@ model User {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  subscriptions NotificationSubscription[]
+  subscriptions         NotificationSubscription[]
+  billingSubscription BillingSubscription?
 
   @@map("users")
+}
+
+/// Stripe subscription state (one per app user). Webhook + Customer Portal keep this in sync.
+model BillingSubscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  stripeCustomerId     String   @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  status               String
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  cancelAtPeriodEnd    Boolean  @default(false) @map("cancel_at_period_end")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("billing_subscriptions")
+}
+
+/// Idempotent Stripe webhook processing (event ids from Stripe are unique).
+model StripeEventLog {
+  eventId    String   @id @map("event_id")
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@map("stripe_event_log")
 }
 
 /// One row = one (league scope × category × destination) route.

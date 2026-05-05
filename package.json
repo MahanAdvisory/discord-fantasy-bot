@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "web"
+  ],
   "scripts": {
     "postinstall": "prisma generate",
     "build": "tsc",
@@ -14,7 +17,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "sync:players": "tsx src/scripts/sleeper-sync.ts players",
-    "sync:stats-week": "tsx src/scripts/sleeper-sync.ts stats-week"
+    "sync:stats-week": "tsx src/scripts/sleeper-sync.ts stats-week",
+    "web:dev": "npm run dev -w fantasy-web",
+    "web:build": "npm run build -w fantasy-web"
   },
   "engines": {
     "node": ">=20"

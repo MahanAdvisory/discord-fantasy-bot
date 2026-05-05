@@ -2,6 +2,11 @@ import "dotenv/config";
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { commands, handleInteraction, slashEphemeral } from "./bot/commands.js";
 import { prisma } from "./db.js";
+import {
+  commandAllowedWithoutSubscription,
+  ensureUserForDiscord,
+  userHasActiveCommercialAccess,
+} from "./entitlement.js";
 import { runHourlyDigest } from "./jobs/hourly.js";
 import { log } from "./logging.js";
 
@@ -57,6 +62,21 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   try {
+    await ensureUserForDiscord(interaction.user.id);
+    if (!commandAllowedWithoutSubscription(interaction.commandName)) {
+      const ok = await userHasActiveCommercialAccess(interaction.user.id);
+      if (!ok) {
+        const billingUrl =
+          process.env.BILLING_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+        await interaction.reply({
+          content:
+            `This bot requires an active subscription.\nOpen **${billingUrl}** to sign in with Discord and subscribe.\n` +
+            `Use the **same Discord account** you use here. Commands like **/link** stay available without a subscription.`,
+          ...slashEphemeral(interaction),
+        });
+        return;
+      }
+    }
     await handleInteraction(interaction);
   } catch (e) {
     log.error("interaction_handler_failed", { err: e instanceof Error ? e.message : String(e) });

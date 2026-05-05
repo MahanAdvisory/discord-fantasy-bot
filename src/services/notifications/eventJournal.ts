@@ -28,7 +28,7 @@ export const journalKeys = {
  * Append-only record of a notification fan-out we completed. Unique `eventKey` catches rare double-runs
  * (e.g. overlapping workers); duplicates are downgraded to a warning.
  */
-export async function recordNotificationJournalEntry(input: NotificationJournalInput): Promise<void> {
+export async function recordNotificationJournalEntry(input: NotificationJournalInput): Promise<boolean> {
   try {
     await prisma.notificationEventJournal.create({
       data: {
@@ -44,11 +44,26 @@ export async function recordNotificationJournalEntry(input: NotificationJournalI
         meta: input.meta ?? undefined,
       },
     });
+    return true;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       log.warn("notification_journal_duplicate_event_key", { eventKey: input.eventKey, kind: input.kind });
-      return;
+      return false;
     }
     throw e;
   }
+}
+
+export async function finalizeNotificationJournalEntry(
+  eventKey: string,
+  targetCount: number,
+  meta?: Prisma.InputJsonValue,
+): Promise<void> {
+  await prisma.notificationEventJournal.update({
+    where: { eventKey },
+    data: {
+      targetCount,
+      ...(meta === undefined ? {} : { meta }),
+    },
+  });
 }

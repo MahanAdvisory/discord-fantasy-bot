@@ -13,7 +13,11 @@ import { getLeagueUsers } from "../../sleeper/leagueUsers.js";
 import { getLeagueTransactions, type SleeperTransaction } from "../../sleeper/transactionsApi.js";
 import { categoriesForTransaction, formatTransactionLine } from "./formatTransaction.js";
 import { deliverNotification, type SubscriptionWithUser } from "./dispatch.js";
-import { journalKeys, recordNotificationJournalEntry } from "./eventJournal.js";
+import {
+  finalizeNotificationJournalEntry,
+  journalKeys,
+  recordNotificationJournalEntry,
+} from "./eventJournal.js";
 import { sleeperDraftUrl, sleeperLeagueUrl } from "./links.js";
 import { log } from "../../logging.js";
 import { fetchAllNflPlayers } from "../../sleeper/playersFull.js";
@@ -435,23 +439,47 @@ async function processLeagueTransactions(
       }
     }
     const line = formatTransactionLine(tx, leagueName, playerLabels, rosterLabels, draftSlotsBySeason);
-    const categoriesEmitted: string[] = [];
-    let targetDeliveries = 0;
-    for (const cat of cats) {
-      const targets = dedupeSubsByDestination(
+    const catTargets = cats.map((cat) => ({
+      cat,
+      targets: dedupeSubsByDestination(
         subs.filter((s) => s.category === cat && subMatchesLeagueUser(s, leagueId, members!)),
-      );
+      ),
+    }));
+    const categoriesEmitted = catTargets.filter((x) => x.targets.length > 0).map((x) => x.cat);
+    const txEventKey = journalKeys.transaction(leagueId, tx.transaction_id);
+    if (!forceReplay && categoriesEmitted.length > 0) {
+      const claimed = await recordNotificationJournalEntry({
+        eventKey: txEventKey,
+        kind: "transaction",
+        leagueId,
+        transactionId: tx.transaction_id,
+        season,
+        week,
+        targetCount: 0,
+        meta: { categories: categoriesEmitted },
+      });
+      if (!claimed) {
+        log.info("poll_tx_skip_claimed", { leagueId, transactionId: tx.transaction_id });
+        continue;
+      }
+    }
+
+    let targetDeliveries = 0;
+    for (const { cat, targets } of catTargets) {
       log.info("poll_tx_emit", {
         leagueId,
         transactionId: tx.transaction_id,
         category: cat,
         targets: targets.length,
       });
-      if (targets.length) categoriesEmitted.push(cat);
       for (const sub of targets) {
         await deliverNotification(client, sub, { content: line });
         targetDeliveries++;
       }
+    }
+
+    if (!forceReplay && categoriesEmitted.length > 0) {
+      await finalizeNotificationJournalEntry(txEventKey, targetDeliveries, { categories: categoriesEmitted });
     }
 
     if (!forceReplay && targetDeliveries > 0) {
@@ -459,16 +487,6 @@ async function processLeagueTransactions(
         where: { leagueId_transactionId: { leagueId, transactionId: tx.transaction_id } },
         create: { leagueId, transactionId: tx.transaction_id },
         update: {},
-      });
-      await recordNotificationJournalEntry({
-        eventKey: journalKeys.transaction(leagueId, tx.transaction_id),
-        kind: "transaction",
-        leagueId,
-        transactionId: tx.transaction_id,
-        season,
-        week,
-        targetCount: targetDeliveries,
-        meta: { categories: categoriesEmitted },
       });
     }
   }
@@ -553,25 +571,40 @@ async function processLeagueDrafts(
             (!s.sleeperDraftId || s.sleeperDraftId === dref.draft_id),
         ),
       );
+      const draftPickEventKey = journalKeys.draftPick(dref.draft_id, p.pick_no);
       let statusDeliveries = 0;
-      for (const sub of targets) {
-        await deliverNotification(client, sub, { content: msg.slice(0, 2000) });
-        statusDeliveries++;
+      if (targets.length > 0) {
+        const claimed = await recordNotificationJournalEntry({
+          eventKey: draftPickEventKey,
+          kind: "draft_pick",
+          leagueId,
+          draftId: dref.draft_id,
+          pickNo: p.pick_no,
+          targetCount: 0,
+          meta: { leagueName, skippedEarlierPicks: newPicks.length > 1 ? newPicks.length - 1 : 0 },
+        });
+        if (claimed) {
+          for (const sub of targets) {
+            await deliverNotification(client, sub, { content: msg.slice(0, 2000) });
+            statusDeliveries++;
+          }
+          await finalizeNotificationJournalEntry(draftPickEventKey, statusDeliveries, {
+            leagueName,
+            skippedEarlierPicks: newPicks.length > 1 ? newPicks.length - 1 : 0,
+          });
+        } else {
+          log.info("poll_draft_skip_pick_claimed", {
+            leagueId,
+            draftId: dref.draft_id,
+            pickNo: p.pick_no,
+          });
+        }
       }
       log.info("poll_draft_emit_status", {
         leagueId,
         draftId: dref.draft_id,
         pickNo: p.pick_no,
         targets: statusDeliveries,
-      });
-      await recordNotificationJournalEntry({
-        eventKey: journalKeys.draftPick(dref.draft_id, p.pick_no),
-        kind: "draft_pick",
-        leagueId,
-        draftId: dref.draft_id,
-        pickNo: p.pick_no,
-        targetCount: statusDeliveries,
-        meta: { leagueName, skippedEarlierPicks: newPicks.length > 1 ? newPicks.length - 1 : 0 },
       });
       lastSeen = picks.length;
     }
@@ -594,25 +627,35 @@ async function processLeagueDrafts(
         const msg =
           `**${leagueName}** — **your pick is on the clock** (pick ${sequencePick}).\n` +
           `${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;
+        const draftClockEventKey = journalKeys.draftOnClock(dref.draft_id, sequencePick);
+        const claimed = await recordNotificationJournalEntry({
+          eventKey: draftClockEventKey,
+          kind: "draft_on_clock",
+          leagueId,
+          draftId: dref.draft_id,
+          pickNo: sequencePick,
+          targetCount: 0,
+          meta: { leagueName },
+        });
         let clockDeliveries = 0;
-        for (const sub of turnSubs) {
-          await deliverNotification(client, sub, { content: msg });
-          clockDeliveries++;
+        if (claimed) {
+          for (const sub of turnSubs) {
+            await deliverNotification(client, sub, { content: msg });
+            clockDeliveries++;
+          }
+          await finalizeNotificationJournalEntry(draftClockEventKey, clockDeliveries, { leagueName });
+        } else {
+          log.info("poll_draft_skip_clock_claimed", {
+            leagueId,
+            draftId: dref.draft_id,
+            pickNo: sequencePick,
+          });
         }
         log.info("poll_draft_emit_on_clock", {
           leagueId,
           draftId: dref.draft_id,
           pickNo: sequencePick,
           targets: clockDeliveries,
-        });
-        await recordNotificationJournalEntry({
-          eventKey: journalKeys.draftOnClock(dref.draft_id, sequencePick),
-          kind: "draft_on_clock",
-          leagueId,
-          draftId: dref.draft_id,
-          pickNo: sequencePick,
-          targetCount: clockDeliveries,
-          meta: { leagueName },
         });
         lastOnClock = sequencePick;
       }

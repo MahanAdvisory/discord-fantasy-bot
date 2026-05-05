@@ -34,6 +34,11 @@ export interface SleeperRoster {
   players?: string[] | null;
   starters?: string[] | null;
   reserve?: string[] | null;
+  settings?: {
+    wins?: number;
+    losses?: number;
+    ties?: number;
+  } | null;
 }
 
 export interface SleeperTradedPick {

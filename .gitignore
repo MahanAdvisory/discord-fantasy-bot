@@ -7,6 +7,10 @@ dist/
 .env
 .env.*
 !.env.example
+!web/.env.local.example
+web/.env.local
+web/.env.production.local
+web/.env.development.local
 
 # Credentials / keys
 *.pem
@@ -20,3 +24,5 @@ id_rsa.pub
 .vercel
 .turbo
 .cache/
+web/.next
+build-web-log.txt
