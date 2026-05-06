@@ -253,7 +253,7 @@ async function runDailyLineupAlerts(
   type WorkKey = string;
   const work = new Map<
     WorkKey,
-    { sleeperUserId: string; leagueId: string; deliverAs: SubscriptionWithUser }
+    { sleeperUserId: string | null; leagueId: string; deliverAs: SubscriptionWithUser }
   >();
 
   const pickDeliverSub = (
@@ -274,13 +274,15 @@ async function runDailyLineupAlerts(
         ? (await getUserLeagues(sleeperUserId, season).catch(() => [])).map((l) => l.league_id)
         : [sub.sleeperLeagueScope];
     for (const leagueId of leagueIds) {
-      const k: WorkKey = `${sub.userId}:${sub.isDm}:${sub.guildId ?? ""}:${sub.channelId ?? ""}:${leagueId}`;
+      const k: WorkKey = sub.isDm
+        ? `${sub.userId}:${sub.isDm}:${sub.guildId ?? ""}:${sub.channelId ?? ""}:${leagueId}`
+        : `${sub.isDm}:${sub.guildId ?? ""}:${sub.channelId ?? ""}:${leagueId}`;
       const existing = work.get(k);
       if (!existing) {
-        work.set(k, { sleeperUserId, leagueId, deliverAs: sub });
+        work.set(k, { sleeperUserId: sub.isDm ? sleeperUserId : null, leagueId, deliverAs: sub });
       } else {
         work.set(k, {
-          sleeperUserId,
+          sleeperUserId: sub.isDm ? sleeperUserId : null,
           leagueId,
           deliverAs: pickDeliverSub(existing.deliverAs, sub),
         });
@@ -290,21 +292,63 @@ async function runDailyLineupAlerts(
 
   const projections = await loadProjectionMap();
   for (const { sleeperUserId, leagueId, deliverAs } of work.values()) {
-    const outcome = await analyzeLineupForLeague(sleeperUserId, leagueId, { projections }).catch((e) => ({
-      kind: "problem" as const,
-      leagueId,
-      leagueName: leagueId,
-      detail: e instanceof Error ? e.message : String(e),
-    }));
-    if (outcome.kind !== "ir") continue;
-    const msg = outcomeToCheckLineupMessage(outcome);
-    await deliverNotification(client, deliverAs, { content: msg.slice(0, 2000) });
+    if (deliverAs.isDm) {
+      if (!sleeperUserId) continue;
+      const outcome = await analyzeLineupForLeague(sleeperUserId, leagueId, { projections }).catch((e) => ({
+        kind: "problem" as const,
+        leagueId,
+        leagueName: leagueId,
+        detail: e instanceof Error ? e.message : String(e),
+      }));
+      if (outcome.kind !== "ir") continue;
+      const msg = outcomeToCheckLineupMessage(outcome);
+      await deliverNotification(client, deliverAs, { content: msg.slice(0, 2000) });
+      continue;
+    }
+
+    const leagueWideMsg = await buildLeagueWideLineupAlertMessage(leagueId, projections);
+    if (!leagueWideMsg) continue;
+    await deliverNotification(client, deliverAs, { content: leagueWideMsg.slice(0, 2000) });
   }
   await prisma.appMeta.upsert({
     where: { key: metaKey },
     create: { key: metaKey, value: todayUtc },
     update: { value: todayUtc },
   });
+}
+
+async function buildLeagueWideLineupAlertMessage(
+  leagueId: string,
+  projections: Awaited<ReturnType<typeof loadProjectionMap>>,
+): Promise<string | null> {
+  const [league, rosters, users] = await Promise.all([
+    getLeague(leagueId).catch(() => null),
+    getLeagueRosters(leagueId).catch(() => []),
+    getLeagueUsers(leagueId).catch(() => []),
+  ]);
+  const leagueName = league?.name ?? leagueId;
+  const userLabels = new Map<string, string>();
+  for (const u of users) {
+    if (!u.user_id) continue;
+    userLabels.set(u.user_id, u.metadata?.team_name?.trim() || u.display_name?.trim() || u.username?.trim() || u.user_id);
+  }
+
+  const issueLines: string[] = [];
+  for (const r of rosters) {
+    if (!r.owner_id) continue;
+    const outcome = await analyzeLineupForLeague(r.owner_id, leagueId, { projections }).catch(() => null);
+    if (!outcome || outcome.kind !== "ir") continue;
+    const teamLabel = userLabels.get(r.owner_id) ?? r.owner_id;
+    issueLines.push(`- **${teamLabel}**: ${outcome.flaggedLabels.join(", ")}`);
+  }
+
+  if (!issueLines.length) return null;
+  return (
+    `**${leagueName}** lineup alerts\n` +
+    `Teams with IR players in starters:\n` +
+    `${issueLines.join("\n")}\n` +
+    `${sleeperLeagueUrl(leagueId)}`
+  );
 }
 
 /** Shared scan path so `/draft-check` can fan out newly-seen pick updates to followers. */
@@ -614,18 +658,23 @@ async function processLeagueDrafts(
     const sequencePick = nextIdx + 1;
 
     if (onClock) {
-      const turnSubs = dedupeSubsByDestination(
+      const allTurnSubs = dedupeSubsByDestination(
         subs.filter(
           (s) =>
             s.category === "draft_on_the_clock" &&
             subMatchesLeagueUser(s, leagueId, members!) &&
-            (!s.sleeperDraftId || s.sleeperDraftId === dref.draft_id) &&
-            s.user.sleeperUserId === onClock,
+            (!s.sleeperDraftId || s.sleeperDraftId === dref.draft_id),
         ),
       );
-      if (turnSubs.length && sequencePick > lastOnClock) {
-        const msg =
+      const dmTurnSubs = allTurnSubs.filter((s) => s.isDm && s.user.sleeperUserId === onClock);
+      const guildTurnSubs = allTurnSubs.filter((s) => !s.isDm);
+      if ((dmTurnSubs.length || guildTurnSubs.length) && sequencePick > lastOnClock) {
+        const dmMsg =
           `**${leagueName}** — **your pick is on the clock** (pick ${sequencePick}).\n` +
+          `${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;
+        const guildOnClockName = labels.get(onClock) ?? `\`${onClock}\``;
+        const guildMsg =
+          `**${leagueName}** — pick ${sequencePick} is on the clock: **${guildOnClockName}**.\n` +
           `${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;
         const draftClockEventKey = journalKeys.draftOnClock(dref.draft_id, sequencePick);
         const claimed = await recordNotificationJournalEntry({
@@ -639,8 +688,12 @@ async function processLeagueDrafts(
         });
         let clockDeliveries = 0;
         if (claimed) {
-          for (const sub of turnSubs) {
-            await deliverNotification(client, sub, { content: msg });
+          for (const sub of dmTurnSubs) {
+            await deliverNotification(client, sub, { content: dmMsg });
+            clockDeliveries++;
+          }
+          for (const sub of guildTurnSubs) {
+            await deliverNotification(client, sub, { content: guildMsg });
             clockDeliveries++;
           }
           await finalizeNotificationJournalEntry(draftClockEventKey, clockDeliveries, { leagueName });
