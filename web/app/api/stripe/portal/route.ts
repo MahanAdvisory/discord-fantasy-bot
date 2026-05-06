@@ -1,17 +1,15 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@fantasy/db";
 import { getStripe } from "@/lib/stripe";
+import { requireSessionUser } from "@/lib/sessionUser";
 
 export async function POST() {
-  const session = await getServerSession(authOptions);
-  const discordId = session?.user && "discordId" in session.user ? session.user.discordId : undefined;
-  if (!discordId) {
+  const { user: sessionUser } = await requireSessionUser();
+  if (!sessionUser) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({
-    where: { discordUserId: discordId },
+    where: { id: sessionUser.id },
     include: { billingSubscription: true },
   });
 

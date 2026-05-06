@@ -22,6 +22,7 @@ import { sleeperDraftUrl, sleeperLeagueUrl } from "./links.js";
 import { log } from "../../logging.js";
 import { fetchAllNflPlayers } from "../../sleeper/playersFull.js";
 import { analyzeLineupForLeague, loadProjectionMap, outcomeToCheckLineupMessage } from "../lineupCheck.js";
+import { runEspnNotificationPoll } from "./espnPoll.js";
 
 /** Log unsupported draft types for on-the-clock once per draft id per process. */
 const warnedUnsupportedOnClockDraftIds = new Set<string>();
@@ -32,6 +33,31 @@ type LeagueInterest = Map<string, Set<string>>;
 interface PollOptions {
   /** If provided and empty, force replay for all leagues in this poll. */
   forceReplayLeagueIds?: Set<string>;
+}
+
+type PendingTxDelivery = {
+  sub: SubscriptionWithUser;
+  category: string;
+  leagueName: string;
+  lines: string[];
+};
+
+export function buildWaiverBatchPages(leagueName: string, lines: string[], perPage = 6): string[] {
+  if (lines.length <= 1) return lines;
+  const pages = Math.ceil(lines.length / perPage);
+  const escapedLeague = leagueName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const out: string[] = [];
+  for (let i = 0; i < pages; i++) {
+    const slice = lines.slice(i * perPage, (i + 1) * perPage);
+    const cleaned = slice.map((ln) =>
+      ln.replace(new RegExp(`^\\*\\*${escapedLeague}\\*\\*\\s+—\\s+`), ""),
+    );
+    out.push(
+      `**${leagueName}** — Waiver/FA ${lines.length} item(s) (status: complete) · page ${i + 1}/${pages}\n` +
+        cleaned.join("\n"),
+    );
+  }
+  return out;
 }
 
 async function buildLeagueInterest(
@@ -100,10 +126,22 @@ async function loadSleeperTeamLabels(leagueId: string): Promise<Map<string, stri
   const out = new Map<string, string>();
   for (const u of users) {
     if (!u.user_id) continue;
-    const label = u.username?.trim() || u.display_name?.trim() || u.metadata?.team_name?.trim() || u.user_id;
+    const label = u.username?.trim() || u.display_name?.trim() || u.user_id;
     out.set(u.user_id, label);
   }
   return out;
+}
+
+const mentionCache = new Map<string, Map<string, string>>();
+async function mentionForGuild(guildId: string, sleeperUserId: string): Promise<string | null> {
+  let m = mentionCache.get(guildId);
+  if (!m) {
+    const rows = await prisma.sleeperMentionMapping.findMany({ where: { guildId } });
+    m = new Map(rows.map((r) => [r.sleeperUserId, r.discordUserId]));
+    mentionCache.set(guildId, m);
+  }
+  const discordUserId = m.get(sleeperUserId);
+  return discordUserId ? `<@${discordUserId}>` : null;
 }
 
 function playerSummary(p: { player_id: string; metadata?: { first_name?: string; last_name?: string; position?: string; team?: string } }): string {
@@ -234,6 +272,12 @@ export async function runNotificationPoll(client: Client, opts?: PollOptions): P
   } catch (e) {
     log.error("poll_lineup_alerts_failed", { err: e instanceof Error ? e.message : String(e) });
   }
+
+  try {
+    await runEspnNotificationPoll(client, subs as SubscriptionWithUser[]);
+  } catch (e) {
+    log.error("poll_espn_failed", { err: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 async function runDailyLineupAlerts(
@@ -306,7 +350,7 @@ async function runDailyLineupAlerts(
       continue;
     }
 
-    const leagueWideMsg = await buildLeagueWideLineupAlertMessage(leagueId, projections);
+    const leagueWideMsg = await buildLeagueWideLineupAlertMessage(leagueId, projections, deliverAs.guildId);
     if (!leagueWideMsg) continue;
     await deliverNotification(client, deliverAs, { content: leagueWideMsg.slice(0, 2000) });
   }
@@ -320,6 +364,7 @@ async function runDailyLineupAlerts(
 async function buildLeagueWideLineupAlertMessage(
   leagueId: string,
   projections: Awaited<ReturnType<typeof loadProjectionMap>>,
+  guildId: string | null,
 ): Promise<string | null> {
   const [league, rosters, users] = await Promise.all([
     getLeague(leagueId).catch(() => null),
@@ -330,7 +375,7 @@ async function buildLeagueWideLineupAlertMessage(
   const userLabels = new Map<string, string>();
   for (const u of users) {
     if (!u.user_id) continue;
-    userLabels.set(u.user_id, u.metadata?.team_name?.trim() || u.display_name?.trim() || u.username?.trim() || u.user_id);
+    userLabels.set(u.user_id, u.username?.trim() || u.display_name?.trim() || u.user_id);
   }
 
   const issueLines: string[] = [];
@@ -338,7 +383,11 @@ async function buildLeagueWideLineupAlertMessage(
     if (!r.owner_id) continue;
     const outcome = await analyzeLineupForLeague(r.owner_id, leagueId, { projections }).catch(() => null);
     if (!outcome || outcome.kind !== "ir") continue;
-    const teamLabel = userLabels.get(r.owner_id) ?? r.owner_id;
+    let teamLabel = userLabels.get(r.owner_id) ?? r.owner_id;
+    if (guildId) {
+      const mention = await mentionForGuild(guildId, r.owner_id);
+      if (mention) teamLabel = mention;
+    }
     issueLines.push(`- **${teamLabel}**: ${outcome.flaggedLabels.join(", ")}`);
   }
 
@@ -448,6 +497,10 @@ async function processLeagueTransactions(
     if (m.size) draftSlotsBySeason.set(seasonKey, m);
   }
 
+  const pending = new Map<string, PendingTxDelivery>();
+  const pendingKey = (sub: SubscriptionWithUser, category: string) =>
+    `${sub.id}:${category}:${sub.isDm ? "dm" : "guild"}:${sub.guildId ?? ""}:${sub.channelId ?? ""}`;
+
   for (const tx of newTxs) {
     /** Sleeper may raise `created` on the same `transaction_id` when draft picks are enriched — avoid a second post. */
     if (!forceReplay) {
@@ -517,7 +570,13 @@ async function processLeagueTransactions(
         targets: targets.length,
       });
       for (const sub of targets) {
-        await deliverNotification(client, sub, { content: line });
+        const k = pendingKey(sub, cat);
+        const ex = pending.get(k);
+        if (!ex) {
+          pending.set(k, { sub, category: cat, leagueName, lines: [line] });
+        } else {
+          ex.lines.push(line);
+        }
         targetDeliveries++;
       }
     }
@@ -532,6 +591,19 @@ async function processLeagueTransactions(
         create: { leagueId, transactionId: tx.transaction_id },
         update: {},
       });
+    }
+  }
+
+  for (const p of pending.values()) {
+    if (p.category === "waivers" && p.lines.length > 1) {
+      const pages = buildWaiverBatchPages(p.leagueName, p.lines, 6);
+      for (const content of pages) {
+        await deliverNotification(client, p.sub, { content: content.slice(0, 2000) });
+      }
+      continue;
+    }
+    for (const ln of p.lines) {
+      await deliverNotification(client, p.sub, { content: ln });
     }
   }
 
@@ -672,7 +744,11 @@ async function processLeagueDrafts(
         const dmMsg =
           `**${leagueName}** — **your pick is on the clock** (pick ${sequencePick}).\n` +
           `${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;
-        const guildOnClockName = labels.get(onClock) ?? `\`${onClock}\``;
+        let guildOnClockName = labels.get(onClock) ?? `\`${onClock}\``;
+        if (guildTurnSubs.length && guildTurnSubs[0]?.guildId) {
+          const mention = await mentionForGuild(guildTurnSubs[0].guildId, onClock);
+          if (mention) guildOnClockName = mention;
+        }
         const guildMsg =
           `**${leagueName}** — pick ${sequencePick} is on the clock: **${guildOnClockName}**.\n` +
           `${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;

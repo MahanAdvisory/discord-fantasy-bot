@@ -29,6 +29,47 @@ Exercises Yahoo Fantasy API after OAuth. **Requires a Yahoo Developer app** and 
 
 - `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET` — from Yahoo Developer Network
 - `YAHOO_REFRESH_TOKEN` — from OAuth 2.0 (Yahoo now often uses OAuth2 for new apps; confirm current YDN docs for Fantasy)
+- `YAHOO_REDIRECT_URI` — optional (defaults to `http://localhost:3000/api/auth/callback/yahoo`)
+
+### One-time OAuth bootstrap
+
+1) Generate consent URL:
+
+```bash
+set YAHOO_CLIENT_ID=...
+set YAHOO_REDIRECT_URI=http://localhost:3000/api/auth/callback/yahoo
+npm run yahoo:auth-url
+```
+
+2) Open URL, approve, copy `code` from callback URL.
+
+3) Exchange code for refresh token:
+
+```bash
+set YAHOO_CLIENT_ID=...
+set YAHOO_CLIENT_SECRET=...
+set YAHOO_REDIRECT_URI=http://localhost:3000/api/auth/callback/yahoo
+set YAHOO_AUTH_CODE=...
+npm run yahoo:exchange
+```
+
+4) Run smoke call:
+
+```bash
+set YAHOO_CLIENT_ID=...
+set YAHOO_CLIENT_SECRET=...
+set YAHOO_REFRESH_TOKEN=...
+npm run yahoo:smoke
+```
+
+5) Discover leagues for linked Yahoo account:
+
+```bash
+set YAHOO_CLIENT_ID=...
+set YAHOO_CLIENT_SECRET=...
+set YAHOO_REFRESH_TOKEN=...
+npm run yahoo:leagues
+```
 
 If env is missing, the script prints setup steps and exits 0.
 
@@ -42,3 +83,24 @@ npx tsx scripts/spikes/yahoo-fantasy-smoke.ts
 ```
 
 Yahoo’s Fantasy Sports API uses game keys like `nfl` and league resources under `fantasy/v2/...` — see [Yahoo Fantasy API docs](https://developer.yahoo.com/fantasysports/).
+
+## CBS Fantasy (`cbs-fantasy-smoke.ts`)
+
+CBS developer/platform availability appears inconsistent over time, so this script is intentionally investigation-only.
+
+**Env:**
+
+- `CBS_APP_ID`
+- `CBS_APP_SECRET`
+- Optional `CBS_TOKEN_URL` (default: `https://api.cbssports.com/general/oauth/generate_token`)
+- Optional `CBS_API_SMOKE_URL` (full endpoint URL to probe with token)
+
+**Example:**
+
+```bash
+set CBS_APP_ID=...
+set CBS_APP_SECRET=...
+npm run cbs:smoke
+```
+
+If token exchange succeeds, script reports token-shape keys and can probe `CBS_API_SMOKE_URL` if you provide one.

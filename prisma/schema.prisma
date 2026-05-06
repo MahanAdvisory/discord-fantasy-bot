@@ -9,17 +9,43 @@ datasource db {
 
 /// Linked Discord account + optional Sleeper identity (provider-agnostic IDs in app code).
 model User {
-  id               String   @id @default(cuid())
-  discordUserId    String   @unique @map("discord_user_id")
-  sleeperUsername  String?  @map("sleeper_username")
-  sleeperUserId    String?  @map("sleeper_user_id")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  email           String?  @unique
+  discordUserId   String?  @unique @map("discord_user_id")
+  googleUserId    String?  @unique @map("google_user_id")
+  sleeperUsername String?  @map("sleeper_username")
+  sleeperUserId   String?  @map("sleeper_user_id")
+  espnLeagueIds   Json?    @map("espn_league_ids")
+  espnSeason      String?  @map("espn_season")
+  espnS2          String?  @map("espn_s2")
+  espnSwid        String?  @map("espn_swid")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  subscriptions         NotificationSubscription[]
+  subscriptions       NotificationSubscription[]
   billingSubscription BillingSubscription?
+  mentionMappings     SleeperMentionMapping[]
 
   @@map("users")
+}
+
+model SleeperMentionMapping {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  guildId       String  @map("guild_id")
+  sleeperUserId String  @map("sleeper_user_id")
+  discordUserId String  @map("discord_user_id")
+  note          String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([guildId, sleeperUserId])
+  @@index([userId, guildId])
+  @@map("sleeper_mention_mappings")
 }
 
 /// Stripe subscription state (one per app user). Webhook + Customer Portal keep this in sync.

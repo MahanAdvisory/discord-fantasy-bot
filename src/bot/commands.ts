@@ -50,6 +50,48 @@ const slashCommandBuilders = [
     .addStringOption((o) =>
       o.setName("sleeper_username").setDescription("Your Sleeper username").setRequired(true),
     ),
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("How to link Sleeper and ESPN accounts + command quick reference"),
+  new SlashCommandBuilder()
+    .setName("link-espn")
+    .setDescription("Save ESPN league info to your account for future ESPN adapter notifications")
+    .addStringOption((o) =>
+      o.setName("league_id").setDescription("ESPN league id from URL").setRequired(true),
+    )
+    .addStringOption((o) =>
+      o.setName("season").setDescription("Season year, e.g. 2025 (optional)"),
+    ),
+  new SlashCommandBuilder()
+    .setName("unlink-espn")
+    .setDescription("Remove one ESPN league id from your saved ESPN links")
+    .addStringOption((o) =>
+      o.setName("league_id").setDescription("ESPN league id to remove").setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("subscribe-espn")
+    .setDescription("Subscribe this destination to ESPN league notifications")
+    .addStringOption((o) =>
+      o
+        .setName("league_id")
+        .setDescription("Optional in DM (defaults to all linked ESPN leagues); required in server"),
+    )
+    .addStringOption((o) =>
+      o
+        .setName("categories")
+        .setDescription("Comma-separated category ids (transactions, waivers, draft_status, ...). Optional."),
+    ),
+  new SlashCommandBuilder()
+    .setName("unsubscribe-espn")
+    .setDescription("Remove ESPN routes (DM all/filtered, or this server channel)")
+    .addStringOption((o) =>
+      o.setName("league_id").setDescription("Optional league id to narrow removal"),
+    )
+    .addStringOption((o) =>
+      o
+        .setName("categories")
+        .setDescription("Comma-separated category ids. Omit for all ESPN categories."),
+    ),
   new SlashCommandBuilder().setName("leagues").setDescription("List your Sleeper NFL leagues (this season)"),
   new SlashCommandBuilder().setName("drafts").setDescription("List your drafts; live ones show pick # and on-the-clock team"),
   new SlashCommandBuilder()
@@ -110,6 +152,15 @@ const slashCommandBuilders = [
     .setName("post-summary")
     .setDescription("Post your leagues summary to this channel (for the server feed)"),
   new SlashCommandBuilder().setName("subscriptions").setDescription("List your notification routes"),
+  new SlashCommandBuilder()
+    .setName("map-mention")
+    .setDescription("Map a Sleeper username to a Discord user id for server alert mentions")
+    .addStringOption((o) => o.setName("sleeper_username").setDescription("Sleeper username").setRequired(true))
+    .addStringOption((o) => o.setName("discord_user_id").setDescription("Discord user id (or @mention)").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("unmap-mention")
+    .setDescription("Remove Sleeper-to-Discord mention mapping for this server")
+    .addStringOption((o) => o.setName("sleeper_username").setDescription("Sleeper username").setRequired(true)),
   new SlashCommandBuilder()
     .setName("unsubscribe")
     .setDescription("Remove routes: in DM (all or one league); in a server, routes for this channel")
@@ -218,9 +269,16 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   if (
     !interaction.inGuild() &&
     commandName !== "link" &&
+    commandName !== "help" &&
+    commandName !== "link-espn" &&
+    commandName !== "unlink-espn" &&
+    commandName !== "subscribe-espn" &&
+    commandName !== "unsubscribe-espn" &&
     commandName !== "leagues" &&
     commandName !== "drafts" &&
     commandName !== "subscriptions" &&
+    commandName !== "map-mention" &&
+    commandName !== "unmap-mention" &&
     commandName !== "subscribe" &&
     commandName !== "unsubscribe" &&
     commandName !== "updates" &&
@@ -362,6 +420,177 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     });
     await interaction.editReply({
       content: `Linked **${interaction.user.tag}** → Sleeper **${su.username}** (\`${su.user_id}\`).`,
+    });
+    return;
+  }
+
+  if (commandName === "help") {
+    const appBase = process.env.BILLING_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const helpUrl = `${appBase.replace(/\/$/, "")}/help`;
+    const lines = [
+      "**Account linking help**",
+      "",
+      "1) Sleeper: run `/link sleeper_username:<your sleeper username>`",
+      "2) ESPN: run `/link-espn league_id:<id> season:<year>` (season optional)",
+      "3) Web form: open " + helpUrl + " to save Sleeper/ESPN details in one place",
+      "",
+      "**Useful commands**",
+      "• `/subscriptions` — view your active routes",
+      "• `/subscribe` / `/unsubscribe` — manage league/category notifications",
+      "• `/subscribe-espn` / `/unsubscribe-espn` — manage ESPN routes",
+      "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
+    ];
+    await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
+    return;
+  }
+
+  if (commandName === "link-espn") {
+    const leagueId = interaction.options.getString("league_id", true).trim();
+    const seasonOpt = interaction.options.getString("season")?.trim();
+    const season = seasonOpt && /^\d{4}$/.test(seasonOpt) ? seasonOpt : undefined;
+    const current = (user as { espnLeagueIds?: unknown }).espnLeagueIds;
+    const existing = Array.isArray(current) ? current.filter((x): x is string => typeof x === "string") : [];
+    const next = [...new Set([...existing, leagueId])];
+    await (prisma.user as unknown as { update: (args: unknown) => Promise<unknown> }).update({
+      where: { id: user.id },
+      data: {
+        espnLeagueIds: next,
+        ...(season ? { espnSeason: season } : {}),
+      },
+    });
+    await interaction.reply({
+      ...slashEphemeral(interaction),
+      content:
+        `Saved ESPN league \`${leagueId}\`${season ? ` for season **${season}**` : ""}. ` +
+        `You now have ${next.length} ESPN league id(s) linked.`,
+    });
+    return;
+  }
+
+  if (commandName === "unlink-espn") {
+    const leagueId = interaction.options.getString("league_id", true).trim();
+    const current = (user as { espnLeagueIds?: unknown }).espnLeagueIds;
+    const existing = Array.isArray(current) ? current.filter((x): x is string => typeof x === "string") : [];
+    const next = existing.filter((id) => id !== leagueId);
+    await (prisma.user as unknown as { update: (args: unknown) => Promise<unknown> }).update({
+      where: { id: user.id },
+      data: { espnLeagueIds: next },
+    });
+    await interaction.reply({
+      ...slashEphemeral(interaction),
+      content: `Removed ESPN league \`${leagueId}\`. Remaining linked ESPN league ids: **${next.length}**.`,
+    });
+    return;
+  }
+
+  if (commandName === "subscribe-espn") {
+    const isDm = slashIsDm(interaction);
+    const ch = interaction.channel;
+    if (!isDm) {
+      if (!ch) {
+        await interaction.reply({ ...slashEphemeral(interaction), content: "Could not resolve this channel." });
+        return;
+      }
+      if (ch.type !== ChannelType.GuildText && ch.type !== ChannelType.PublicThread) {
+        await interaction.reply({ content: "Use a text channel or thread.", ...slashEphemeral(interaction) });
+        return;
+      }
+    }
+    const leagueOpt = interaction.options.getString("league_id")?.trim() ?? null;
+    const categories = parseCategories(interaction.options.getString("categories"));
+    const userEspn = user as unknown as { espnLeagueIds?: unknown };
+    const linkedEspnLeagueIds = Array.isArray(userEspn.espnLeagueIds)
+      ? userEspn.espnLeagueIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      : [];
+    if (!linkedEspnLeagueIds.length) {
+      await interaction.reply({
+        ...slashEphemeral(interaction),
+        content: "No ESPN leagues linked yet. Use `/link-espn` or `/help` and web help page first.",
+      });
+      return;
+    }
+    if (!isDm && !leagueOpt) {
+      await interaction.reply({
+        ...slashEphemeral(interaction),
+        content: "In a server, `league_id` is required for `/subscribe-espn`.",
+      });
+      return;
+    }
+    const scopeRaw = leagueOpt ?? ALL_LEAGUES_SCOPE;
+    if (leagueOpt && !linkedEspnLeagueIds.includes(leagueOpt)) {
+      await interaction.reply({
+        ...slashEphemeral(interaction),
+        content: `League \`${leagueOpt}\` is not in your saved ESPN league ids. Link it with \`/link-espn\` first.`,
+      });
+      return;
+    }
+    const scope = `espn:${scopeRaw}`;
+    const routeNs = isDm ? routeNamespaceDm(user.id) : routeNamespaceGuild(interaction.guildId!);
+    const guildId = isDm ? null : interaction.guildId!;
+    const channelId = isDm ? null : interaction.channelId;
+    const created: string[] = [];
+    const skipped: string[] = [];
+    for (const cat of categories) {
+      const existing = await prisma.notificationSubscription.findUnique({
+        where: {
+          routeNamespace_sleeperLeagueScope_category: {
+            routeNamespace: routeNs,
+            sleeperLeagueScope: scope,
+            category: cat,
+          },
+        },
+      });
+      if (existing) {
+        skipped.push(cat);
+        continue;
+      }
+      await prisma.notificationSubscription.create({
+        data: {
+          userId: user.id,
+          guildId,
+          channelId,
+          isDm,
+          routeNamespace: routeNs,
+          provider: "espn",
+          sleeperLeagueScope: scope,
+          category: cat,
+        },
+      });
+      created.push(cat);
+    }
+    const scopeLabel = scopeRaw === ALL_LEAGUES_SCOPE ? "*all linked ESPN leagues*" : `\`${scopeRaw}\``;
+    await interaction.reply({
+      ...slashEphemeral(interaction),
+      content:
+        `ESPN routes updated for ${isDm ? "DM" : `<#${channelId}>`} · scope ${scopeLabel}\n` +
+        (created.length ? `Added: ${created.join(", ")}\n` : "") +
+        (skipped.length ? `Already set: ${skipped.join(", ")}` : ""),
+    });
+    return;
+  }
+
+  if (commandName === "unsubscribe-espn") {
+    const isDm = slashIsDm(interaction);
+    const catParsed = parseCategoriesFilter(interaction.options.getString("categories"));
+    if (!catParsed.ok) {
+      await interaction.reply({ content: catParsed.error, ...slashEphemeral(interaction) });
+      return;
+    }
+    const leagueOpt = interaction.options.getString("league_id")?.trim() ?? null;
+    const scope = leagueOpt ? `espn:${leagueOpt}` : undefined;
+    const result = await prisma.notificationSubscription.deleteMany({
+      where: {
+        userId: user.id,
+        provider: "espn",
+        isDm,
+        ...(isDm ? {} : { guildId: interaction.guildId!, channelId: interaction.channelId }),
+        ...(scope ? { sleeperLeagueScope: scope } : {}),
+        ...(catParsed.categories ? { category: { in: catParsed.categories } } : {}),
+      },
+    });
+    await interaction.reply({
+      ...slashEphemeral(interaction),
+      content: `Removed **${result.count}** ESPN route(s).`,
     });
     return;
   }
@@ -676,17 +905,16 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     let usingModLeagueBypass = false;
 
     if (isDm) {
-      if (leagueOpt?.trim()) {
-        await interaction.reply({
-          ...slashEphemeral(interaction),
-          content:
-            "In **DM**, alerts always cover **all leagues** you’re in on Sleeper. Omit `sleeper_league_id`. " +
-            "For one league only, run `/subscribe` in a **server channel** with that league id.",
-        });
-        return;
-      }
-      scope = ALL_LEAGUES_SCOPE;
+      scope = leagueOpt?.trim() || ALL_LEAGUES_SCOPE;
       routeNs = routeNamespaceDm(user.id);
+      if (scope !== ALL_LEAGUES_SCOPE) {
+        try {
+          await sleeper.getLeague(scope);
+        } catch {
+          await interaction.reply({ content: `League \`${scope}\` not found on Sleeper.`, ...slashEphemeral(interaction) });
+          return;
+        }
+      }
     } else {
       const state = await sleeper.getNflState();
       const season = state.league_season ?? state.season;
@@ -868,12 +1096,70 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     }
     const lines = subs.map((s) => {
       const dest = s.isDm ? "DM" : s.channelId ? `<#${s.channelId}>` : "?";
-      const scope = s.sleeperLeagueScope === ALL_LEAGUES_SCOPE ? "*all leagues*" : `\`${s.sleeperLeagueScope}\``;
+      const scope =
+        s.sleeperLeagueScope === ALL_LEAGUES_SCOPE
+          ? "*all leagues*"
+          : s.sleeperLeagueScope === `espn:${ALL_LEAGUES_SCOPE}`
+            ? "*all ESPN leagues*"
+            : `\`${s.sleeperLeagueScope}\``;
       const label = NOTIFICATION_CATEGORY_LABELS[s.category as keyof typeof NOTIFICATION_CATEGORY_LABELS] ?? s.category;
-      return `• ${label} → ${dest} · league ${scope}`;
+      return `• [${s.provider}] ${label} → ${dest} · league ${scope}`;
     });
     await interaction.editReply({
       content: truncateDiscordReply("**Your notification routes**", lines),
+    });
+    return;
+  }
+
+  if (commandName === "map-mention" || commandName === "unmap-mention") {
+    if (!interaction.inGuild()) {
+      await interaction.reply({ content: "Use this command in a server.", ...slashEphemeral(interaction) });
+      return;
+    }
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      await interaction.reply({ content: "You need **Manage Server** for this command.", ...slashEphemeral(interaction) });
+      return;
+    }
+    const sleeperUsername = interaction.options.getString("sleeper_username", true).trim();
+    const sleeperUser = await sleeper.getUserByUsername(sleeperUsername);
+    if (!sleeperUser?.user_id) {
+      await interaction.reply({ content: `No Sleeper user found for **${sleeperUsername}**.`, ...slashEphemeral(interaction) });
+      return;
+    }
+    if (commandName === "unmap-mention") {
+      await prisma.sleeperMentionMapping.deleteMany({
+        where: { guildId: interaction.guildId!, sleeperUserId: sleeperUser.user_id },
+      });
+      await interaction.reply({
+        ...slashEphemeral(interaction),
+        content: `Removed mapping for Sleeper **${sleeperUser.username}** in this server.`,
+      });
+      return;
+    }
+    const rawDiscord = interaction.options.getString("discord_user_id", true).trim();
+    const discordUserId = rawDiscord.replace(/[<@!>]/g, "");
+    if (!/^\d{8,}$/.test(discordUserId)) {
+      await interaction.reply({ ...slashEphemeral(interaction), content: "Provide a valid Discord user id or mention." });
+      return;
+    }
+    await prisma.sleeperMentionMapping.upsert({
+      where: {
+        guildId_sleeperUserId: {
+          guildId: interaction.guildId!,
+          sleeperUserId: sleeperUser.user_id,
+        },
+      },
+      create: {
+        userId: user.id,
+        guildId: interaction.guildId!,
+        sleeperUserId: sleeperUser.user_id,
+        discordUserId,
+      },
+      update: { discordUserId, userId: user.id },
+    });
+    await interaction.reply({
+      ...slashEphemeral(interaction),
+      content: `Mapped Sleeper **${sleeperUser.username}** to <@${discordUserId}> for this server.`,
     });
     return;
   }

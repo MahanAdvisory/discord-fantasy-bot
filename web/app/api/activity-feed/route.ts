@@ -1,12 +1,10 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@fantasy/db";
 import { getNflState, getUserLeagues, getLeagueRosters } from "@fantasy/sleeper/client";
 import { getLeagueTransactions } from "@fantasy/sleeper/transactionsApi";
 import { getDraftPicks, getLeagueDrafts } from "@fantasy/sleeper/draftDetail";
 import { getLeagueUsers } from "@fantasy/sleeper/leagueUsers";
 import { formatTransactionLine } from "@fantasy/services/notifications/formatTransaction";
 import { sleeperDraftUrlPlain, sleeperLeagueUrlPlain } from "@fantasy/domain/sleeperLinks";
+import { requireSessionUser } from "@/lib/sessionUser";
 
 type ActivityFeedItem = {
   id: string;
@@ -27,11 +25,8 @@ function playerSummary(p: { player_id: string; metadata?: { first_name?: string;
 }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const discordId = session?.user && "discordId" in session.user ? session.user.discordId : undefined;
-  if (!discordId) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  const user = await prisma.user.findUnique({ where: { discordUserId: discordId } });
+  const { user } = await requireSessionUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!user?.sleeperUserId) {
     return Response.json(
       {

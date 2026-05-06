@@ -18,6 +18,13 @@
     "db:migrate": "prisma migrate dev",
     "sync:players": "tsx src/scripts/sleeper-sync.ts players",
     "sync:stats-week": "tsx src/scripts/sleeper-sync.ts stats-week",
+    "yahoo:auth-url": "tsx scripts/spikes/yahoo-oauth-url.ts",
+    "yahoo:exchange": "tsx scripts/spikes/yahoo-oauth-exchange.ts",
+    "yahoo:smoke": "tsx scripts/spikes/yahoo-fantasy-smoke.ts",
+    "yahoo:leagues": "tsx scripts/spikes/yahoo-leagues-smoke.ts",
+    "cbs:smoke": "tsx scripts/spikes/cbs-fantasy-smoke.ts",
+    "espn:smoke": "tsx scripts/spikes/espn-notification-smoke.ts",
+    "espn:scan": "tsx scripts/spikes/espn-candidate-scan.ts",
     "web:dev": "npm run dev -w fantasy-web",
     "web:build": "npm run build -w fantasy-web"
   },

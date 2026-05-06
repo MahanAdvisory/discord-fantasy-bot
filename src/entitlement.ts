@@ -1,6 +1,6 @@
 import { prisma } from "./db.js";
 
-const ALLOWLIST_DEFAULT = "link";
+const ALLOWLIST_DEFAULT = "link,help,link-espn,unlink-espn,subscribe-espn,unsubscribe-espn";
 
 function allowlist(): Set<string> {
   const raw = process.env.COMMERCIAL_GATE_ALLOWLIST_COMMANDS ?? ALLOWLIST_DEFAULT;

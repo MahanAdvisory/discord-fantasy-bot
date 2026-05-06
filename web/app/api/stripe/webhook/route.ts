@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { prisma } from "@fantasy/db";
 import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
+import { log } from "@fantasy/logging";
 
 export const dynamic = "force-dynamic";
 
@@ -56,11 +57,13 @@ export async function POST(req: Request) {
 
   const already = await prisma.stripeEventLog.findUnique({ where: { eventId: event.id } });
   if (already) {
+    log.info("stripe_webhook_duplicate", { eventId: event.id, type: event.type });
     return new Response("duplicate", { status: 200 });
   }
   try {
     await prisma.stripeEventLog.create({ data: { eventId: event.id } });
   } catch {
+    log.info("stripe_webhook_duplicate_race", { eventId: event.id, type: event.type });
     return new Response("duplicate", { status: 200 });
   }
 
@@ -71,6 +74,13 @@ export async function POST(req: Request) {
       if (userId && s.customer && s.subscription) {
         const sub = await stripe.subscriptions.retrieve(s.subscription as string);
         await syncFromStripeSubscription(userId, s.customer as string, sub);
+      } else {
+        log.warn("stripe_checkout_missing_mapping", {
+          eventId: event.id,
+          hasUserId: Boolean(userId),
+          hasCustomer: Boolean(s.customer),
+          hasSubscription: Boolean(s.subscription),
+        });
       }
     }
 
@@ -95,12 +105,23 @@ export async function POST(req: Request) {
             cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
           },
         });
+      } else {
+        log.warn("stripe_subscription_missing_customer_mapping", {
+          eventId: event.id,
+          customerId,
+          type: event.type,
+        });
       }
     }
   } catch (e) {
-    console.error("[stripe webhook]", e);
+    log.error("stripe_webhook_handler_failed", {
+      eventId: event.id,
+      type: event.type,
+      err: e instanceof Error ? e.message : String(e),
+    });
     return new Response("handler error", { status: 500 });
   }
 
+  log.info("stripe_webhook_processed", { eventId: event.id, type: event.type });
   return new Response("ok", { status: 200 });
 }
