@@ -25,10 +25,18 @@ export interface EspnRosterBuckets {
   reserve: string[];
 }
 
+/** Parallel to `buckets`: ESPN fantasy player ids in the same order (for Sleeper crosswalk). */
+export interface EspnRosterPlayerIdBuckets {
+  starters: number[];
+  bench: number[];
+  reserve: number[];
+}
+
 export interface EspnTeamRosterSnapshot {
   teamId: number;
   teamName: string;
   buckets: EspnRosterBuckets;
+  playerIds: EspnRosterPlayerIdBuckets;
 }
 
 export interface EspnDraftStatusSnapshot {
@@ -56,17 +64,121 @@ function parseEspnType(code: unknown): EspnRecentActivityEvent["type"] {
   return "other";
 }
 
+/** ESPN `proTeamId` → NFL abbreviation (from community lm-api constants). */
+const ESPN_PRO_TEAM_ABBR: Record<number, string> = {
+  0: "None",
+  1: "ATL",
+  2: "BUF",
+  3: "CHI",
+  4: "CIN",
+  5: "CLE",
+  6: "DAL",
+  7: "DEN",
+  8: "DET",
+  9: "GB",
+  10: "TEN",
+  11: "IND",
+  12: "KC",
+  13: "LV",
+  14: "LAR",
+  15: "MIA",
+  16: "MIN",
+  17: "NE",
+  18: "NO",
+  19: "NYG",
+  20: "NYJ",
+  21: "PHI",
+  22: "ARI",
+  23: "PIT",
+  24: "LAC",
+  25: "SF",
+  26: "SEA",
+  27: "TB",
+  28: "WSH",
+  29: "CAR",
+  30: "JAX",
+  33: "BAL",
+  34: "HOU",
+};
+
+/** D/ST fantasy player ids are negative; commonly `-(16000 + proTeamId)`. */
+function dstLabelFromNegativePlayerId(playerId: number): string | null {
+  if (playerId >= 0) return null;
+  const proTeamId = Math.abs(playerId) - 16000;
+  const abbr = ESPN_PRO_TEAM_ABBR[proTeamId];
+  if (abbr && abbr !== "None") return `${abbr} D/ST`;
+  return null;
+}
+
+type EspnNestedPlayer = {
+  id?: number;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  proTeamId?: number;
+};
+
+function nameFromNestedPlayer(pl: EspnNestedPlayer): string | null {
+  const full = typeof pl.fullName === "string" ? pl.fullName.trim() : "";
+  if (full) return full;
+  const first = typeof pl.firstName === "string" ? pl.firstName : "";
+  const last = typeof pl.lastName === "string" ? pl.lastName : "";
+  const combo = `${first} ${last}`.trim();
+  return combo || null;
+}
+
+function nestedPlayerFromEntry(entry: {
+  playerPoolEntry?: { player?: EspnNestedPlayer };
+}): EspnNestedPlayer | null {
+  const pl = entry.playerPoolEntry?.player;
+  return pl && typeof pl === "object" ? pl : null;
+}
+
+function ingestPlayerNode(p: unknown, out: Map<number, string>): void {
+  if (!p || typeof p !== "object") return;
+  const o = p as Record<string, unknown>;
+  const inner =
+    (o.playerPoolEntry && typeof o.playerPoolEntry === "object"
+      ? (o.playerPoolEntry as { player?: unknown }).player
+      : null) ??
+    (o.player && typeof o.player === "object" ? o.player : null) ??
+    o;
+  if (!inner || typeof inner !== "object") return;
+  const pl = inner as EspnNestedPlayer;
+  const id = typeof pl.id === "number" ? pl.id : typeof o.id === "number" ? o.id : null;
+  const nm = nameFromNestedPlayer(pl);
+  if (id != null && nm) out.set(id, nm);
+}
+
 function playerNameMap(players: unknown): Map<number, string> {
   const out = new Map<number, string>();
   if (!Array.isArray(players)) return out;
   for (const p of players) {
-    if (!p || typeof p !== "object") continue;
-    const obj = p as { id?: number; fullName?: string };
-    if (typeof obj.id === "number" && typeof obj.fullName === "string" && obj.fullName.trim()) {
-      out.set(obj.id, obj.fullName.trim());
-    }
+    ingestPlayerNode(p, out);
   }
   return out;
+}
+
+function resolveRosterEntryLabel(
+  entry: {
+    playerId?: number;
+    playerPoolEntry?: { player?: EspnNestedPlayer };
+  },
+  playersById: Map<number, string>,
+): string {
+  const pid = typeof entry.playerId === "number" ? entry.playerId : null;
+  const nested = nestedPlayerFromEntry(entry);
+  if (nested) {
+    const nm = nameFromNestedPlayer(nested);
+    if (nm) return nm;
+    if (pid != null && pid < 0 && typeof nested.proTeamId === "number") {
+      const abbr = ESPN_PRO_TEAM_ABBR[nested.proTeamId];
+      if (abbr && abbr !== "None") return `${abbr} D/ST`;
+    }
+  }
+  if (pid == null) return "player";
+  if (pid < 0) return dstLabelFromNegativePlayerId(pid) ?? `D/ST (${pid})`;
+  return playersById.get(pid) ?? `player ${pid}`;
 }
 
 function teamNameMap(teams: unknown): Map<number, string> {
@@ -93,6 +205,32 @@ function slotBucket(lineupSlotId: number | null): keyof EspnRosterBuckets {
   return "starters";
 }
 
+function teamOverallRecord(team: unknown): { wins: number; losses: number; ties: number } | null {
+  if (!team || typeof team !== "object") return null;
+  const t = team as { record?: { overall?: { wins?: number; losses?: number; ties?: number } } };
+  const o = t.record?.overall;
+  if (!o || typeof o !== "object") return null;
+  const wins = typeof o.wins === "number" ? o.wins : 0;
+  const losses = typeof o.losses === "number" ? o.losses : 0;
+  const ties = typeof o.ties === "number" ? o.ties : 0;
+  return { wins, losses, ties };
+}
+
+function teamRecordIndex(raw: unknown): Map<number, { wins: number; losses: number; ties: number }> {
+  const m = new Map<number, { wins: number; losses: number; ties: number }>();
+  if (!raw || typeof raw !== "object") return m;
+  const rec = raw as { teams?: unknown };
+  const teams = Array.isArray(rec.teams) ? rec.teams : [];
+  for (const t of teams) {
+    if (!t || typeof t !== "object") continue;
+    const id = (t as { id?: number }).id;
+    if (typeof id !== "number") continue;
+    const r = teamOverallRecord(t);
+    if (r) m.set(id, r);
+  }
+  return m;
+}
+
 function normalizeTeamRosters(raw: unknown): EspnTeamRosterSnapshot[] {
   if (!raw || typeof raw !== "object") return [];
   const rec = raw as { teams?: unknown; players?: unknown };
@@ -105,18 +243,22 @@ function normalizeTeamRosters(raw: unknown): EspnTeamRosterSnapshot[] {
     const team = t as { id?: number; roster?: { entries?: unknown[] } };
     if (typeof team.id !== "number") continue;
     const buckets: EspnRosterBuckets = { starters: [], bench: [], reserve: [] };
+    const playerIds: EspnRosterPlayerIdBuckets = { starters: [], bench: [], reserve: [] };
     const entries = Array.isArray(team.roster?.entries) ? team.roster.entries : [];
     for (const e of entries) {
       if (!e || typeof e !== "object") continue;
-      const entry = e as { playerId?: number; lineupSlotId?: number };
-      const playerId = typeof entry.playerId === "number" ? entry.playerId : null;
-      const name = playerId != null ? players.get(playerId) ?? `player ${playerId}` : "player";
-      buckets[slotBucket(typeof entry.lineupSlotId === "number" ? entry.lineupSlotId : null)].push(name);
+      const entry = e as { playerId?: number; lineupSlotId?: number; playerPoolEntry?: { player?: EspnNestedPlayer } };
+      const slot = slotBucket(typeof entry.lineupSlotId === "number" ? entry.lineupSlotId : null);
+      const pid = typeof entry.playerId === "number" ? entry.playerId : null;
+      const name = resolveRosterEntryLabel(entry, players);
+      buckets[slot].push(name);
+      playerIds[slot].push(pid ?? -1);
     }
     out.push({
       teamId: team.id,
       teamName: teamNames.get(team.id) ?? `team ${team.id}`,
       buckets,
+      playerIds,
     });
   }
   return out;
@@ -205,6 +347,74 @@ function normalizeRecentActivity(raw: unknown): EspnRecentActivityEvent[] {
   return out.sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
 
+/** ESPN uses 1 = Sunday … 7 = Saturday for `waiverProcessDays` (per common lm-api payloads). */
+const ESPN_WAIVER_DAY: Record<number, string> = {
+  1: "Sunday",
+  2: "Monday",
+  3: "Tuesday",
+  4: "Wednesday",
+  5: "Thursday",
+  6: "Friday",
+  7: "Saturday",
+};
+
+function currentEspnWaiverDayNumEt(): number {
+  const wd = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "short" });
+  const m: Record<string, number> = { Sun: 1, Mon: 2, Tue: 3, Wed: 4, Thu: 5, Fri: 6, Sat: 7 };
+  return m[wd] ?? 1;
+}
+
+export interface EspnWaiverSchedule {
+  /** Human-readable waiver run summary, or null if unknown. */
+  label: string | null;
+  /** Days until next listed waiver day (ET calendar), for sorting; null if unknown. */
+  dayOffset: number | null;
+}
+
+/**
+ * Best-effort waiver schedule from `mSettings` payload (`settings.acquisitionSettings`).
+ */
+export function parseEspnWaiverSchedule(data: unknown): EspnWaiverSchedule {
+  const root = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const settings = root.settings as Record<string, unknown> | undefined;
+  const acq = settings?.acquisitionSettings as Record<string, unknown> | undefined;
+  if (!acq) return { label: null, dayOffset: null };
+
+  const acqType = typeof acq.acquisitionType === "string" ? acq.acquisitionType : "";
+
+  if (acqType === "FREEAGENT") {
+    return { label: "No waivers (free agency)", dayOffset: null };
+  }
+
+  const daysRaw = acq.waiverProcessDays;
+  const days = Array.isArray(daysRaw)
+    ? daysRaw.filter((x): x is number => typeof x === "number" && x >= 1 && x <= 7)
+    : [];
+  const hourRaw = acq.waiverProcessHour;
+
+  if ((acqType.includes("CONTINUOUS") || acqType.includes("FAB")) && !days.length) {
+    return { label: "Continuous / FAB waivers (see ESPN)", dayOffset: null };
+  }
+
+  if (!days.length) {
+    return { label: null, dayOffset: null };
+  }
+
+  const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
+  const dayPart = uniqueDays.map((d) => ESPN_WAIVER_DOW[d] ?? `Day ${d}`).join(", ");
+  const hourPart =
+    typeof hourRaw === "number" && hourRaw >= 0 && hourRaw <= 23
+      ? `${String(hourRaw).padStart(2, "0")}:00 ET`
+      : null;
+  const label = hourPart ? `${dayPart} · ${hourPart}` : dayPart;
+
+  const cur = currentEspnWaiverDayNumEt();
+  const offsets = uniqueDays.map((d) => (d - cur + 7) % 7);
+  const dayOffset = Math.min(...offsets);
+
+  return { label, dayOffset };
+}
+
 export async function fetchEspnLeagueSnapshot(input: {
   leagueId: string;
   season: string;
@@ -216,6 +426,8 @@ export async function fetchEspnLeagueSnapshot(input: {
   rosters: EspnTeamRosterSnapshot[];
   draft: EspnDraftStatusSnapshot;
   sourceUrl: string;
+  teamRecordByTeamId: Map<number, { wins: number; losses: number; ties: number }>;
+  waiverSchedule: EspnWaiverSchedule;
 }> {
   const views = ["mSettings", "mTeam", "mRoster", "mRecentActivity", "mDraftDetail", "mStatus", "kona_player_info"];
   const url = espnLeagueUrl(input.season, input.leagueId, views);
@@ -250,6 +462,8 @@ export async function fetchEspnLeagueSnapshot(input: {
     rosters: normalizeTeamRosters(data),
     draft: inferDraftStatus(data),
     sourceUrl: url,
+    teamRecordByTeamId: teamRecordIndex(data),
+    waiverSchedule: parseEspnWaiverSchedule(data),
   };
 }
 

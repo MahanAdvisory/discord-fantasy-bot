@@ -39,19 +39,23 @@ type PendingTxDelivery = {
   sub: SubscriptionWithUser;
   category: string;
   leagueName: string;
-  lines: string[];
+  lines: Array<{ content: string; batchableWaiverFa: boolean }>;
 };
+
+function compactWaiverBatchLine(line: string, leagueName: string): string {
+  const escapedLeague = leagueName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withoutLeague = line.replace(new RegExp(`^\\*\\*${escapedLeague}\\*\\*\\s+—\\s+`), "");
+  const detail = withoutLeague.match(/^Waiver\/FA(?: · [^\n]+)? \(status: complete\)\n_([^_]+)_$/);
+  return detail?.[1] ?? withoutLeague;
+}
 
 export function buildWaiverBatchPages(leagueName: string, lines: string[], perPage = 6): string[] {
   if (lines.length <= 1) return lines;
   const pages = Math.ceil(lines.length / perPage);
-  const escapedLeague = leagueName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const out: string[] = [];
   for (let i = 0; i < pages; i++) {
     const slice = lines.slice(i * perPage, (i + 1) * perPage);
-    const cleaned = slice.map((ln) =>
-      ln.replace(new RegExp(`^\\*\\*${escapedLeague}\\*\\*\\s+—\\s+`), ""),
-    );
+    const cleaned = slice.map((ln) => compactWaiverBatchLine(ln, leagueName));
     out.push(
       `**${leagueName}** — Waiver/FA ${lines.length} item(s) (status: complete) · page ${i + 1}/${pages}\n` +
         cleaned.join("\n"),
@@ -536,6 +540,7 @@ async function processLeagueTransactions(
       }
     }
     const line = formatTransactionLine(tx, leagueName, playerLabels, rosterLabels, draftSlotsBySeason);
+    const batchableWaiverFa = tx.type === "free_agent" || tx.type === "waiver";
     const catTargets = cats.map((cat) => ({
       cat,
       targets: dedupeSubsByDestination(
@@ -573,9 +578,9 @@ async function processLeagueTransactions(
         const k = pendingKey(sub, cat);
         const ex = pending.get(k);
         if (!ex) {
-          pending.set(k, { sub, category: cat, leagueName, lines: [line] });
+          pending.set(k, { sub, category: cat, leagueName, lines: [{ content: line, batchableWaiverFa }] });
         } else {
-          ex.lines.push(line);
+          ex.lines.push({ content: line, batchableWaiverFa });
         }
         targetDeliveries++;
       }
@@ -595,15 +600,16 @@ async function processLeagueTransactions(
   }
 
   for (const p of pending.values()) {
-    if (p.category === "waivers" && p.lines.length > 1) {
-      const pages = buildWaiverBatchPages(p.leagueName, p.lines, 6);
+    const batchableWaiverFaLines = p.lines.filter((ln) => ln.batchableWaiverFa).map((ln) => ln.content);
+    if (batchableWaiverFaLines.length > 1) {
+      const pages = buildWaiverBatchPages(p.leagueName, batchableWaiverFaLines, 6);
       for (const content of pages) {
         await deliverNotification(client, p.sub, { content: content.slice(0, 2000) });
       }
-      continue;
     }
     for (const ln of p.lines) {
-      await deliverNotification(client, p.sub, { content: ln });
+      if (batchableWaiverFaLines.length > 1 && ln.batchableWaiverFa) continue;
+      await deliverNotification(client, p.sub, { content: ln.content });
     }
   }
 

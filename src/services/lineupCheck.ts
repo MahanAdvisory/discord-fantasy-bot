@@ -136,16 +136,10 @@ export type IrSlotSuggestion = { slot: string; playerLabel: string; proj: number
 
 export type LineupCheckOutcome =
   | { kind: "ok"; leagueId: string; leagueName: string }
-  | {
-      kind: "ir";
-      leagueId: string;
-      leagueName: string;
-      flaggedLabels: string[];
-      suggestions: IrSlotSuggestion[];
-    }
+  | { kind: "issues"; leagueId: string; leagueName: string; issues: string[]; suggestions: IrSlotSuggestion[] }
   | { kind: "problem"; leagueId: string; leagueName: string; detail: string };
 
-function formatIrLineupBlock(leagueName: string, flaggedLabels: string[], suggestions: IrSlotSuggestion[], leagueId: string): string {
+function formatLineupIssueBlock(leagueName: string, issues: string[], suggestions: IrSlotSuggestion[], leagueId: string): string {
   const sugLines = suggestions.map((s) => {
     const projSuffix = s.proj != null ? ` (proj: ${s.proj.toFixed(2)})` : "";
     return `· **[${s.slot}]** ${s.playerLabel}${projSuffix}`;
@@ -158,7 +152,7 @@ function formatIrLineupBlock(leagueName: string, flaggedLabels: string[], sugges
       : `Suggested replacements:\n${sugLines.join("\n")}`;
   return (
     `**${leagueName}** lineup check\n` +
-    `Issue: Starter on IR -> ${flaggedLabels.join(", ")}\n` +
+    `Issues:\n${issues.map((x) => `· ${x}`).join("\n")}\n` +
     `${sugBlock}\n` +
     `${sleeperLeagueTeamUrl(leagueId)}`
   );
@@ -190,26 +184,53 @@ export async function loadPlayerPositions(playerIds: string[]): Promise<Map<stri
   return out;
 }
 
-function buildIrSlotSuggestions(opts: {
+export async function loadPlayerTeams(playerIds: string[]): Promise<Map<string, string | null>> {
+  const ids = [...new Set(playerIds)];
+  const rows = ids.length
+    ? await prisma.sleeperPlayer.findMany({
+        where: { playerId: { in: ids } },
+        select: { playerId: true, data: true },
+      })
+    : [];
+  const out = new Map<string, string | null>();
+  for (const r of rows) {
+    const data = r.data as { team?: string } | null;
+    out.set(r.playerId, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+  }
+  const missing = ids.filter((id) => !out.has(id));
+  if (missing.length) {
+    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+    for (const id of missing) {
+      const data = fullPlayerCache?.[id] as { team?: string } | undefined;
+      out.set(id, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+    }
+  }
+  return out;
+}
+
+function buildFlaggedSlotSuggestions(opts: {
   starters: string[];
+  flaggedStarterIdxs: number[];
   rosterPositions: string[] | null | undefined;
-  flaggedIds: Set<string>;
   bench: string[];
   projections: ProjectionMap;
   labels: Map<string, string>;
   positions: Map<string, string>;
+  teams: Map<string, string | null>;
 }): IrSlotSuggestion[] {
-  const { starters, rosterPositions, flaggedIds, bench, projections, labels, positions } = opts;
+  const { starters, flaggedStarterIdxs, rosterPositions, bench, projections, labels, positions, teams } = opts;
   const assignedBench = new Set<string>();
   const suggestions: IrSlotSuggestion[] = [];
 
-  for (let i = 0; i < starters.length; i++) {
-    const pid = starters[i];
-    if (!pid || !flaggedIds.has(pid)) continue;
-
+  for (const i of flaggedStarterIdxs) {
     const slotRaw = rosterPositions?.[i]?.trim() || "?";
     const candidates = bench
-      .filter((bid) => !assignedBench.has(bid) && playerEligibleForRosterSlot(slotRaw, positions.get(bid)))
+      .filter(
+        (bid) =>
+          !assignedBench.has(bid) &&
+          Boolean(teams.get(bid)) &&
+          playerEligibleForRosterSlot(slotRaw, positions.get(bid)),
+      )
       .map((bid) => ({ bid, proj: projections.get(bid) ?? 0 }))
       .sort((a, b) => b.proj - a.proj);
 
@@ -266,47 +287,70 @@ export async function analyzeLineupForLeague(
   const starterSet = new Set(starters);
   const bench = allPlayers.filter((p) => !starterSet.has(p));
   const labels = await loadPlayerLabels([...starters, ...bench]);
+  const starterIds = starters.filter((pid) => pid !== "0");
   const playerRows = await prisma.sleeperPlayer.findMany({
-    where: { playerId: { in: starters } },
+    where: { playerId: { in: starterIds } },
     select: { playerId: true, data: true },
   });
   const statusByPlayer = new Map<string, string | null>();
+  const teamByPlayer = new Map<string, string | null>();
   for (const p of playerRows) {
-    const data = p.data as { injury_status?: string } | null;
+    const data = p.data as { injury_status?: string; team?: string } | null;
     statusByPlayer.set(p.playerId, data?.injury_status ?? null);
+    teamByPlayer.set(p.playerId, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
   }
-  const unresolved = starters.filter((pid) => statusByPlayer.get(pid) == null);
+  const unresolved = starterIds.filter((pid) => statusByPlayer.get(pid) == null || !teamByPlayer.has(pid));
   if (unresolved.length) {
     if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
     for (const pid of unresolved) {
-      const data = fullPlayerCache?.[pid] as { injury_status?: string } | undefined;
+      const data = fullPlayerCache?.[pid] as { injury_status?: string; team?: string } | undefined;
       statusByPlayer.set(pid, data?.injury_status ?? null);
+      teamByPlayer.set(pid, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
     }
   }
 
-  const flagged = starters.filter((pid) => isIrStatus(statusByPlayer.get(pid) ?? null));
-  if (!flagged.length) {
+  const flaggedStarterIdxs: number[] = [];
+  const issues: string[] = [];
+  for (let i = 0; i < starters.length; i++) {
+    const pid = starters[i];
+    const slot = league.roster_positions?.[i]?.trim() || `slot ${i + 1}`;
+    if (pid === "0") {
+      flaggedStarterIdxs.push(i);
+      issues.push(`Empty starter slot (${slot}).`);
+      continue;
+    }
+    if (isIrStatus(statusByPlayer.get(pid) ?? null)) {
+      flaggedStarterIdxs.push(i);
+      issues.push(`Starter on IR: ${labels.get(pid) ?? `\`${pid}\``}.`);
+    }
+    if (!teamByPlayer.get(pid)) {
+      if (!flaggedStarterIdxs.includes(i)) flaggedStarterIdxs.push(i);
+      issues.push(`Starter has no NFL team: ${labels.get(pid) ?? `\`${pid}\``}.`);
+    }
+  }
+  if (!flaggedStarterIdxs.length) {
     return { kind: "ok", leagueId, leagueName: league.name };
   }
 
   const projections = opts?.projections ?? (await loadProjectionMap());
   const positions = await loadPlayerPositions([...starters, ...bench]);
-  const suggestions = buildIrSlotSuggestions({
+  const teams = await loadPlayerTeams([...starters, ...bench]);
+  const suggestions = buildFlaggedSlotSuggestions({
     starters,
+    flaggedStarterIdxs,
     rosterPositions: league.roster_positions,
-    flaggedIds: new Set(flagged),
     bench,
     projections,
     labels,
     positions,
+    teams,
   });
-  const flaggedLabels = flagged.map((pid) => labels.get(pid) ?? `\`${pid}\``);
 
   return {
-    kind: "ir",
+    kind: "issues",
     leagueId,
     leagueName: league.name,
-    flaggedLabels,
+    issues,
     suggestions,
   };
 }
@@ -318,7 +362,7 @@ export function outcomeToCheckLineupMessage(outcome: LineupCheckOutcome): string
   if (outcome.kind === "problem") {
     return `${outcome.detail}\n${sleeperLeagueTeamUrl(outcome.leagueId)}`;
   }
-  return formatIrLineupBlock(outcome.leagueName, outcome.flaggedLabels, outcome.suggestions, outcome.leagueId);
+  return formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId);
 }
 
 /** @deprecated Prefer analyzeLineupForLeague + outcomeToCheckLineupMessage for new code. */
@@ -354,9 +398,9 @@ export async function runLineupCheckAcrossLeagues(
       noIssues += 1;
       continue;
     }
-    if (outcome.kind === "ir") {
+    if (outcome.kind === "issues") {
       issueEntries.push({
-        text: formatIrLineupBlock(outcome.leagueName, outcome.flaggedLabels, outcome.suggestions, outcome.leagueId),
+        text: formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId),
       });
       continue;
     }

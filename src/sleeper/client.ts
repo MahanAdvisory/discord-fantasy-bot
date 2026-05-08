@@ -34,6 +34,7 @@ export interface SleeperRoster {
   players?: string[] | null;
   starters?: string[] | null;
   reserve?: string[] | null;
+  taxi?: string[] | null;
   settings?: {
     wins?: number;
     losses?: number;
@@ -68,6 +69,17 @@ async function getJson<T>(url: string): Promise<T> {
 
 export async function getUserByUsername(username: string): Promise<SleeperUser | null> {
   const url = `${V1}/user/${encodeURIComponent(username)}`;
+  const res = await fetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Sleeper HTTP ${res.status} ${url} ${text.slice(0, 200)}`);
+  }
+  return res.json() as Promise<SleeperUser>;
+}
+
+export async function getUserById(userId: string): Promise<SleeperUser | null> {
+  const url = `${V1}/user/${encodeURIComponent(userId)}`;
   const res = await fetch(url);
   if (res.status === 404) return null;
   if (!res.ok) {

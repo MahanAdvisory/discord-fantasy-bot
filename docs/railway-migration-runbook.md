@@ -47,3 +47,22 @@ Migrate bot + web workloads from local hosting to Railway with safe rollback.
 - Use distinct Railway env groups for `staging` and `production`.
 - Ensure one active poller instance to avoid duplicate sends.
 - Add uptime + error alerting before final cutover.
+
+## Pre-Public-Launch Legal/Branding Polish
+Before opening the Railway-hosted site to the public, finalize the placeholders introduced with the privacy/terms pages:
+
+- [ ] **Update Contact Us sections** in `web/app/privacy/page.tsx` and `web/app/terms/page.tsx`.
+  - Replace the generic "support channel listed on the dashboard or in our Discord application" copy with a real contact (e.g. `support@<domain>` or a dedicated Discord support invite).
+  - Consider a single contact block component if both pages should stay in sync.
+- [ ] **Swap governing law** in `web/app/terms/page.tsx` (Section 12).
+  - Currently set to Delaware, USA as a placeholder.
+  - Replace with the actual operating jurisdiction; have counsel confirm before launch.
+- [ ] **Finalize product name** across the web app.
+  - Audit references to "Fantasy Dashboard" in:
+    - `web/app/layout.tsx` (`metadata.title`),
+    - `web/app/page.tsx` (header `<h1>` + marketing copy),
+    - `web/app/privacy/page.tsx` and `web/app/terms/page.tsx` (titles, metadata, body copy),
+    - any README/marketing docs.
+  - Replace with the chosen brand name and update favicon / logo placeholder at the same time.
+
+These should be completed (and reviewed) in the cutover window, not after the site is public.

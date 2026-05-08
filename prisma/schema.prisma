@@ -16,6 +16,8 @@ model User {
   sleeperUsername String?  @map("sleeper_username")
   sleeperUserId   String?  @map("sleeper_user_id")
   espnLeagueIds   Json?    @map("espn_league_ids")
+  /// Map of ESPN league id (string) -> your ESPN fantasy team id (number) for roster/record resolution.
+  espnTeamByLeague Json?   @map("espn_team_by_league")
   espnSeason      String?  @map("espn_season")
   espnS2          String?  @map("espn_s2")
   espnSwid        String?  @map("espn_swid")

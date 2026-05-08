@@ -2,7 +2,7 @@
  * Cross-surface view models (Discord bot, web dashboard, future mobile).
  * Provider-specific fields stay namespaced under `sleeper` until multi-adapter work lands.
  */
-export type FantasyProvider = "sleeper";
+export type FantasyProvider = "sleeper" | "espn";
 
 export interface DashboardNflContext {
   season: string;

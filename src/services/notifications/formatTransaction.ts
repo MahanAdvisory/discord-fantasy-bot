@@ -132,5 +132,5 @@ export function formatTransactionLine(
     );
   }
   const detail = detailParts.length ? `\n_${detailParts.join(" · ")}_` : "";
-  return `**${leagueName}** — ${type}${delta} · \`${tx.transaction_id}\` (status: ${tx.status})${detail}`;
+  return `**${leagueName}** — ${type}${delta} (status: ${tx.status})${detail}`;
 }

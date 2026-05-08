@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { prisma } from "../db.js";
+import { espnTeamByLeagueFromJson } from "../espn/linkedLeagues.js";
 import * as sleeper from "../sleeper/client.js";
 import {
   ALL_LEAGUES_SCOPE,
@@ -61,6 +62,11 @@ const slashCommandBuilders = [
     )
     .addStringOption((o) =>
       o.setName("season").setDescription("Season year, e.g. 2025 (optional)"),
+    )
+    .addIntegerOption((o) =>
+      o
+        .setName("team_id")
+        .setDescription("Your ESPN team id in this league (optional; from roster URL teamId=)"),
     ),
   new SlashCommandBuilder()
     .setName("unlink-espn")
@@ -431,7 +437,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "**Account linking help**",
       "",
       "1) Sleeper: run `/link sleeper_username:<your sleeper username>`",
-      "2) ESPN: run `/link-espn league_id:<id> season:<year>` (season optional)",
+      "2) ESPN: run `/link-espn league_id:<id> season:<year> team_id:<id>` (season / team_id optional)",
       "3) Web form: open " + helpUrl + " to save Sleeper/ESPN details in one place",
       "",
       "**Useful commands**",
@@ -448,21 +454,26 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     const leagueId = interaction.options.getString("league_id", true).trim();
     const seasonOpt = interaction.options.getString("season")?.trim();
     const season = seasonOpt && /^\d{4}$/.test(seasonOpt) ? seasonOpt : undefined;
+    const teamIdOpt = interaction.options.getInteger("team_id");
     const current = (user as { espnLeagueIds?: unknown }).espnLeagueIds;
     const existing = Array.isArray(current) ? current.filter((x): x is string => typeof x === "string") : [];
     const next = [...new Set([...existing, leagueId])];
-    await (prisma.user as unknown as { update: (args: unknown) => Promise<unknown> }).update({
+    const teamMap = espnTeamByLeagueFromJson((user as { espnTeamByLeague?: unknown }).espnTeamByLeague);
+    if (teamIdOpt != null) teamMap[leagueId] = teamIdOpt;
+    await prisma.user.update({
       where: { id: user.id },
       data: {
         espnLeagueIds: next,
         ...(season ? { espnSeason: season } : {}),
+        ...(teamIdOpt != null ? { espnTeamByLeague: teamMap } : {}),
       },
     });
     await interaction.reply({
       ...slashEphemeral(interaction),
       content:
-        `Saved ESPN league \`${leagueId}\`${season ? ` for season **${season}**` : ""}. ` +
-        `You now have ${next.length} ESPN league id(s) linked.`,
+        `Saved ESPN league \`${leagueId}\`${season ? ` for season **${season}**` : ""}` +
+        (teamIdOpt != null ? ` · team **${teamIdOpt}**` : "") +
+        `. You now have ${next.length} ESPN league id(s) linked.`,
     });
     return;
   }
@@ -472,9 +483,11 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     const current = (user as { espnLeagueIds?: unknown }).espnLeagueIds;
     const existing = Array.isArray(current) ? current.filter((x): x is string => typeof x === "string") : [];
     const next = existing.filter((id) => id !== leagueId);
-    await (prisma.user as unknown as { update: (args: unknown) => Promise<unknown> }).update({
+    const teamMap = espnTeamByLeagueFromJson((user as { espnTeamByLeague?: unknown }).espnTeamByLeague);
+    delete teamMap[leagueId];
+    await prisma.user.update({
       where: { id: user.id },
-      data: { espnLeagueIds: next },
+      data: { espnLeagueIds: next, espnTeamByLeague: teamMap },
     });
     await interaction.reply({
       ...slashEphemeral(interaction),
