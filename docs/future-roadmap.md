@@ -1,33 +1,47 @@
 # Future Roadmap (Post-Sprint)
 
 ## Focus Areas
-- Finalize WhatsApp delivery via Twilio
+- Expand notification transports with Telegram, Slack, then WhatsApp
 - Complete ESPN integration to parity-level reliability
 - Finish Stripe commercialization hardening
 - Decide next provider expansion (Yahoo vs CBS vs NFL.com)
 
-## Phase 1 - WhatsApp (Twilio) Finalization
+For the consolidated growth plan covering transports, Yahoo, donations/subscriptions, logo, and screenshots, see [Growth Roadmap](./growth-roadmap.md).
+
+## Phase 1 - Notification Transport Expansion
 
 ### Goals
-- Productionize WhatsApp as a first-class notification destination.
+- Add Telegram and Slack as free-tier notification destinations.
+- Productionize WhatsApp as a paid-tier notification destination.
 - Reuse existing normalized notification pipeline (same event source, different transport).
 
 ### Milestones
-1. **Transport adapter**
-   - Implement `whatsapp` adapter with Twilio sender abstraction.
-   - Add destination metadata to subscription model (phone, opt-in state, channel type).
-2. **Delivery guarantees**
+1. **Transport abstraction**
+   - Define a shared `TransportAdapter` interface for Discord, Telegram, Slack, and WhatsApp.
+   - Add transport destination metadata to the subscription model.
+2. **Telegram MVP**
+   - Implement BotFather token config, deep-link account linking, and direct-message delivery.
+   - Add Telegram route management to the web subscription UI.
+3. **Slack MVP**
+   - Implement Slack OAuth installation, channel selection, and `chat.postMessage` delivery.
+   - Add Slack-specific mention mapping and route diagnostics.
+4. **WhatsApp paid pilot**
+   - Implement Twilio WhatsApp sender abstraction.
+   - Add phone verification, opt-in state, and paid-tier entitlement checks.
+5. **Delivery guarantees**
    - Reuse idempotency/event journal behavior to prevent duplicate sends.
    - Add retry policy + dead-letter/error logging.
-3. **User onboarding**
-   - Add web + Discord workflow for WhatsApp linking/verification.
+6. **User onboarding and controls**
+   - Add web workflows for linking Telegram, Slack, and WhatsApp.
    - Add opt-in/opt-out controls per category.
-4. **Operational readiness**
-   - Add delivery metrics and failure alerts.
-   - Add runbook for Twilio template/content issues.
+7. **Operational readiness**
+   - Add delivery metrics and failure alerts by transport.
+   - Add runbooks for Slack install errors and Twilio template/content issues.
 
 ### Exit Criteria
-- At least 1 production user receives stable waiver/draft/lineup notifications via WhatsApp.
+- At least 1 production user receives stable waiver/draft/lineup notifications via Telegram.
+- At least 1 production workspace receives stable notifications via Slack.
+- At least 1 paid pilot user receives stable notifications via WhatsApp.
 - Duplicate send rate remains at/near zero during retries/restarts.
 
 ---
@@ -98,8 +112,10 @@
 ---
 
 ## Suggested Sequencing
-1. Twilio WhatsApp finalize
-2. ESPN completion (draft + activity parity)
-3. Stripe hardening
-4. Yahoo integration
-5. CBS/NFL.com decision gate
+1. Telegram notification MVP
+2. Slack notification MVP
+3. Twilio WhatsApp paid pilot
+4. ESPN completion (draft + activity parity)
+5. Stripe hardening
+6. Yahoo integration
+7. CBS/NFL.com decision gate

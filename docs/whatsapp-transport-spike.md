@@ -42,6 +42,26 @@ Use **Twilio WhatsApp** for MVP transport, then evaluate direct Meta migration l
 - Delivery failures are logged and non-fatal to poll loop.
 - No duplicate sends on retry/replay.
 
+## Paid Tier Rationale
+
+WhatsApp should launch as a paid-tier feature, not a free transport, because it introduces variable delivery cost and more operational overhead than Discord, Telegram, or Slack.
+
+Cost and support drivers:
+
+- Twilio/WhatsApp pricing can vary by country, message type, and conversation window.
+- Template messages may require approval and can fail for content-policy reasons.
+- Waiver and transaction bursts can create many outbound messages in a short period.
+- Phone verification, opt-in, opt-out, and failed delivery support are more sensitive than chat-app installs.
+- A single high-volume user can create real monthly vendor cost.
+
+Paid-tier requirements before launch:
+
+- Track delivery count and estimated cost by user.
+- Add per-user and per-category rate controls.
+- Add a monthly cost cap or kill switch.
+- Gate WhatsApp route creation behind Pro entitlement checks.
+- Surface WhatsApp as a premium benefit in the subscription plan copy.
+
 ## Next Engineering Tasks
 1. Define `TransportAdapter` interface (`discord`, `whatsapp`).
 2. Add WhatsApp destination metadata to subscription model.

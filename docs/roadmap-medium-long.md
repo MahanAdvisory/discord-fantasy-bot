@@ -1,5 +1,7 @@
 # Medium/Long Roadmap Milestones
 
+For the consolidated growth plan covering transports, Yahoo, monetization, logo, and screenshots, see [Growth Roadmap](./growth-roadmap.md).
+
 ## Medium Term
 
 ### 1) Notification condensation for waiver bursts
@@ -20,10 +22,23 @@
 - Reuse dashboard contracts so UI tabs remain provider-agnostic.
 - Roll out to private alpha with telemetry before broad enablement.
 
-### 4) WhatsApp bot parity
+### 4) Telegram notification transport
+- Add Telegram bot token config and signed deep-link account linking.
+- Store Telegram destination metadata for each user and notification route.
+- Reuse the normalized notification fanout path through a transport adapter.
+- Add opt-in/unlink controls in the web help/account page.
+
+### 5) Slack notification transport
+- Add Slack OAuth installation and callback routes.
+- Store workspace, channel, and bot-token metadata securely.
+- Add channel selection to subscription management.
+- Add Slack-specific mention mapping and route health diagnostics.
+
+### 6) WhatsApp bot parity
 - Start with Twilio WhatsApp transport abstraction matching Discord command intents.
 - Reuse core domain services (`lineup`, `draft`, `transactions`) through channel adapters.
 - Add per-user channel preference and notification rate controls.
+- Gate WhatsApp behind paid entitlements because delivery has variable vendor cost.
 
 ## Long Term
 

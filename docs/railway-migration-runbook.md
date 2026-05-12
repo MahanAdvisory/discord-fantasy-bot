@@ -51,6 +51,8 @@ Migrate bot + web workloads from local hosting to Railway with safe rollback.
 ## Pre-Public-Launch Legal/Branding Polish
 Before opening the Railway-hosted site to the public, finalize the placeholders introduced with the privacy/terms pages:
 
+See [Growth Roadmap](./growth-roadmap.md) for the fuller donation, subscription, transport, Yahoo, logo, and screenshot plan.
+
 - [ ] **Update Contact Us sections** in `web/app/privacy/page.tsx` and `web/app/terms/page.tsx`.
   - Replace the generic "support channel listed on the dashboard or in our Discord application" copy with a real contact (e.g. `support@<domain>` or a dedicated Discord support invite).
   - Consider a single contact block component if both pages should stay in sync.
@@ -64,5 +66,21 @@ Before opening the Railway-hosted site to the public, finalize the placeholders 
     - `web/app/privacy/page.tsx` and `web/app/terms/page.tsx` (titles, metadata, body copy),
     - any README/marketing docs.
   - Replace with the chosen brand name and update favicon / logo placeholder at the same time.
+- [ ] **Launch donation support path** before or during Railway public launch.
+  - Pick the provider: Stripe Payment Link, Buy Me a Coffee, or Ko-fi.
+  - Add a `DONATION_URL` or `SUPPORT_URL` env var for the public support button.
+  - Add `/support` copy that makes clear donations are optional and do not create product entitlements.
+  - Update privacy/terms copy for donation processing and refund expectations.
+  - Stand up donor tracking before launch (see [Growth Roadmap](./growth-roadmap.md) "Donor tracking requirements"):
+    - Add the `Donation` Prisma model and migration.
+    - Wire provider webhooks (Stripe, BMC, Ko-fi as applicable) with idempotent `(provider, providerEventId)` handling.
+    - Confirm donor email + amount + currency are captured for every successful donation in staging before opening to the public.
+    - Confirm a donor PII deletion workflow exists and was tested.
+- [ ] **Prepare subscription rollout plan** before enforcing any paywall.
+  - Define Free vs Pro benefits and publish them on a `/pro` or `/changes` page.
+  - Confirm whether league hyperlinks, WhatsApp delivery, Yahoo leagues, unlimited leagues, and higher poll cadence are Pro benefits.
+  - Create Stripe monthly and annual prices.
+  - Verify checkout, portal, webhook, and entitlement state transitions in Railway staging.
+  - Prepare a donor migration path, such as a discount code or first-month-free offer.
 
 These should be completed (and reviewed) in the cutover window, not after the site is public.

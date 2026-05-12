@@ -23,6 +23,8 @@ This document consolidates desk research for multi-provider support (leagues, dr
 | **CBS Sports** | Historical “Fantasy Open Platform” ([developer.cbssports.com](http://developer.cbssports.com/) references) | OAuth / app credentials | League, teams, transactions per legacy docs | Varies | Yes | Yes | Yes | **Investigate** — confirm program status (some sources indicate legacy/limited onboarding) |
 | **Underdog / PrizePicks / DFS** | Product-specific; not drop-in for season-long redraft | — | Different model | Best ball / DFS | — | — | — | Out of scope unless product expands |
 
+> **Sleeper note:** the public REST at `api.sleeper.app/v1` does **not** expose pending trade offers, league chat messages, inbox DMs, friend invites, or in-app notifications. Those events live behind an authenticated session at `sleeper.app/graphql`. See [Sleeper Private Events Spike](./sleeper-private-events-spike.md) for the feasibility plan that decides whether and how to support them.
+
 ---
 
 ## Supplemental data vendors (not full league hosts)
@@ -60,6 +62,7 @@ This document consolidates desk research for multi-provider support (leagues, dr
 
 - **ESPN public league**: no cookies; validate JSON shape for a known public league id + year.
 - **Yahoo**: requires Yahoo Developer app + OAuth — scripts document env vars and expected failure modes when unset.
+- **Sleeper private events**: research-first spike for trade-offer / chat / DM alerts via the authenticated GraphQL endpoint. See [docs/sleeper-private-events-spike.md](./sleeper-private-events-spike.md).
 
 ---
 
