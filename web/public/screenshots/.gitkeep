@@ -1,0 +1,7 @@
+Static screenshot assets for the landing page live here. Expected files:
+
+- discord-draft-notification.png
+- discord-waiver-notification.png
+- dashboard.png
+
+Anything dropped into this directory is served at /screenshots/<filename> by Next.js.

@@ -51,6 +51,32 @@ function LeagueProviderIcon({ provider }: { provider?: "sleeper" | "espn" }) {
   );
 }
 
+function ScreenshotTile({ src, alt, caption }: { src: string; alt: string; caption: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <figure className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <div className="relative flex h-72 w-full items-center justify-center bg-zinc-50 p-2 dark:bg-zinc-900 sm:h-80 md:h-96">
+        {failed ? (
+          <div className="flex h-full w-full items-center justify-center border border-dashed border-zinc-400 p-3 text-center text-xs text-zinc-500">
+            Add image at <code className="mx-1 rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">web/public{src}</code>
+          </div>
+        ) : (
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-full max-w-full object-contain"
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        )}
+      </div>
+      <figcaption className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+        {caption}
+      </figcaption>
+    </figure>
+  );
+}
+
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "drafts", label: "Active drafts" },
   { key: "leagues", label: "Leagues" },
@@ -340,7 +366,6 @@ export default function Home() {
     <main className="mx-auto max-w-6xl px-6 py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
         <div>
-          <div className="mb-3 inline-flex h-10 w-40 items-center justify-center rounded-lg border border-dashed border-zinc-400 text-xs text-zinc-500">LOGO PLACEHOLDER</div>
           <h1 className="text-3xl font-semibold text-zinc-950 dark:text-zinc-50">Fantasy Dashboard</h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">Centralize league data from multiple fantasy football sources, including Sleeper, ESPN, and others to come.</p>
         </div>
@@ -442,6 +467,19 @@ export default function Home() {
       {unauth && (
         <section className="space-y-6">
           <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+            <h2 className="mb-3 text-lg font-semibold">Why FFSidekick</h2>
+            <ul className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+              <li>
+                Link your fantasy football leagues with Discord so you get controllable notifications on
+                Discord, with other locations to come.
+              </li>
+              <li>
+                Configure your Discord integration to do DMs, or work in servers to allow Discord to
+                become the hub for your fantasy season.
+              </li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
             <h2 className="mb-2 text-lg font-semibold">Testimonials</h2>
             <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
               <li>"Wow, you have 40 leagues? That's crazy"</li>
@@ -449,9 +487,21 @@ export default function Home() {
             </ul>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="h-40 rounded-xl border border-dashed border-zinc-400 p-3 text-xs text-zinc-500">Screenshot placeholder 1</div>
-            <div className="h-40 rounded-xl border border-dashed border-zinc-400 p-3 text-xs text-zinc-500">Screenshot placeholder 2</div>
-            <div className="h-40 rounded-xl border border-dashed border-zinc-400 p-3 text-xs text-zinc-500">Screenshot placeholder 3</div>
+            <ScreenshotTile
+              src="/screenshots/discord-draft-notification.png"
+              alt="Example Discord notification for an active draft"
+              caption="Discord draft notification"
+            />
+            <ScreenshotTile
+              src="/screenshots/discord-waiver-notification.png"
+              alt="Example Discord notification for waivers and adds/drops"
+              caption="Discord waiver notification"
+            />
+            <ScreenshotTile
+              src="/screenshots/dashboard.png"
+              alt="FFSidekick dashboard showing linked leagues"
+              caption="Dashboard"
+            />
           </div>
         </section>
       )}
