@@ -26,7 +26,8 @@
     "espn:smoke": "tsx scripts/spikes/espn-notification-smoke.ts",
     "espn:scan": "tsx scripts/spikes/espn-candidate-scan.ts",
     "web:dev": "npm run dev -w fantasy-web",
-    "web:build": "npm run build -w fantasy-web"
+    "web:build": "npm run build -w fantasy-web",
+    "web:start": "npm run start -w fantasy-web"
   },
   "engines": {
     "node": ">=20"

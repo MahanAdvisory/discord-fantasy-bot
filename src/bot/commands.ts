@@ -272,6 +272,7 @@ async function resolveGuildDefaultLeagueForChannel(
 
 export async function handleInteraction(interaction: ChatInputCommandInteraction): Promise<void> {
   const { commandName } = interaction;
+  let user: Awaited<ReturnType<typeof prisma.user.findUnique>> = null;
   if (
     !interaction.inGuild() &&
     commandName !== "link" &&
@@ -451,6 +452,11 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   }
 
   if (commandName === "link-espn") {
+    user = await prisma.user.upsert({
+      where: { discordUserId: interaction.user.id },
+      create: { discordUserId: interaction.user.id },
+      update: {},
+    });
     const leagueId = interaction.options.getString("league_id", true).trim();
     const seasonOpt = interaction.options.getString("season")?.trim();
     const season = seasonOpt && /^\d{4}$/.test(seasonOpt) ? seasonOpt : undefined;
@@ -479,6 +485,11 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   }
 
   if (commandName === "unlink-espn") {
+    user = await prisma.user.upsert({
+      where: { discordUserId: interaction.user.id },
+      create: { discordUserId: interaction.user.id },
+      update: {},
+    });
     const leagueId = interaction.options.getString("league_id", true).trim();
     const current = (user as { espnLeagueIds?: unknown }).espnLeagueIds;
     const existing = Array.isArray(current) ? current.filter((x): x is string => typeof x === "string") : [];
@@ -497,6 +508,11 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   }
 
   if (commandName === "subscribe-espn") {
+    user = await prisma.user.upsert({
+      where: { discordUserId: interaction.user.id },
+      create: { discordUserId: interaction.user.id },
+      update: {},
+    });
     const isDm = slashIsDm(interaction);
     const ch = interaction.channel;
     if (!isDm) {
@@ -583,6 +599,11 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   }
 
   if (commandName === "unsubscribe-espn") {
+    user = await prisma.user.upsert({
+      where: { discordUserId: interaction.user.id },
+      create: { discordUserId: interaction.user.id },
+      update: {},
+    });
     const isDm = slashIsDm(interaction);
     const catParsed = parseCategoriesFilter(interaction.options.getString("categories"));
     if (!catParsed.ok) {
@@ -615,7 +636,9 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     await interaction.deferReply({ ...slashEphemeral(interaction) });
   }
 
-  const user = await prisma.user.findUnique({ where: { discordUserId: interaction.user.id } });
+  if (!user) {
+    user = await prisma.user.findUnique({ where: { discordUserId: interaction.user.id } });
+  }
   if (!user?.sleeperUserId) {
     if (deferBeforeUserLookup) {
       await interaction.editReply({ content: "Run `/link` with your Sleeper username first." });

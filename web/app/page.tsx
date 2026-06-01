@@ -308,7 +308,7 @@ export default function Home() {
   };
   const toggleActivityLeague = (leagueId: string) => setActivitySelectedLeagueIds((p) => p.includes(leagueId) ? p.filter((x) => x !== leagueId) : [...p, leagueId]);
   const groupedSubs = useMemo(() => {
-    const out = new Map<string, typeof subs.routes>();
+    const out = new Map<string, NonNullable<Subscriptions>["routes"]>();
     for (const row of subs?.routes ?? []) {
       const k = row.leagueScopeLabel;
       if (!out.has(k)) out.set(k, []);

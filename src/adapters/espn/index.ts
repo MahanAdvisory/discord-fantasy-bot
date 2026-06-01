@@ -401,7 +401,7 @@ export function parseEspnWaiverSchedule(data: unknown): EspnWaiverSchedule {
   }
 
   const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
-  const dayPart = uniqueDays.map((d) => ESPN_WAIVER_DOW[d] ?? `Day ${d}`).join(", ");
+  const dayPart = uniqueDays.map((d) => ESPN_WAIVER_DAY[d] ?? `Day ${d}`).join(", ");
   const hourPart =
     typeof hourRaw === "number" && hourRaw >= 0 && hourRaw <= 23
       ? `${String(hourRaw).padStart(2, "0")}:00 ET`

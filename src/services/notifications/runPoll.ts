@@ -348,7 +348,7 @@ async function runDailyLineupAlerts(
         leagueName: leagueId,
         detail: e instanceof Error ? e.message : String(e),
       }));
-      if (outcome.kind !== "ir") continue;
+      if (outcome.kind !== "issues") continue;
       const msg = outcomeToCheckLineupMessage(outcome);
       await deliverNotification(client, deliverAs, { content: msg.slice(0, 2000) });
       continue;
@@ -386,13 +386,13 @@ async function buildLeagueWideLineupAlertMessage(
   for (const r of rosters) {
     if (!r.owner_id) continue;
     const outcome = await analyzeLineupForLeague(r.owner_id, leagueId, { projections }).catch(() => null);
-    if (!outcome || outcome.kind !== "ir") continue;
+    if (!outcome || outcome.kind !== "issues") continue;
     let teamLabel = userLabels.get(r.owner_id) ?? r.owner_id;
     if (guildId) {
       const mention = await mentionForGuild(guildId, r.owner_id);
       if (mention) teamLabel = mention;
     }
-    issueLines.push(`- **${teamLabel}**: ${outcome.flaggedLabels.join(", ")}`);
+    issueLines.push(`- **${teamLabel}**: ${outcome.issues.join("; ")}`);
   }
 
   if (!issueLines.length) return null;

@@ -6,7 +6,7 @@
     "postinstall": "prisma generate --schema ../prisma/schema.prisma",
     "dev": "next dev -p 3000",
     "build": "prisma generate --schema ../prisma/schema.prisma && next build",
-    "start": "next start -p 3000",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {

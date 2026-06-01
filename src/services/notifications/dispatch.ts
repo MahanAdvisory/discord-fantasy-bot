@@ -21,6 +21,7 @@ export async function deliverNotification(
   }
 
   if (sub.isDm || !sub.channelId) {
+    if (!sub.user.discordUserId) return;
     try {
       const discordUser = await client.users.fetch(sub.user.discordUserId);
       const payload: MessageCreateOptions = {};

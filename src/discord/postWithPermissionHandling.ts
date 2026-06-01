@@ -76,6 +76,7 @@ export async function postToTextChannelWithHandling(
       });
       const discordIds = [...new Set(pending.map((p) => p.user.discordUserId))];
       for (const setupDiscordId of discordIds) {
+        if (!setupDiscordId) continue;
         try {
           const dm = await client.users.createDM(setupDiscordId);
           await dm.send({
