@@ -216,6 +216,37 @@ async function resolveOnClockOwnerUserId(
   return rosterOwner.get(ownerRosterId) ?? null;
 }
 
+/** Snapshot for /poll-now and ops: are routes and Sleeper leagues visible to the poller? */
+export async function describePollReadiness(): Promise<{
+  season: string;
+  week: number;
+  subscriptionCount: number;
+  dmRouteCount: number;
+  channelRouteCount: number;
+  leagueCount: number;
+  sampleLeagueIds: string[];
+}> {
+  const state = await getNflState();
+  const season = state.league_season ?? state.season;
+  const week = Math.max(1, state.leg ?? state.display_week ?? state.week ?? 1);
+  const subs = await prisma.notificationSubscription.findMany({
+    where: { user: { sleeperUserId: { not: null } } },
+    include: { user: true },
+  });
+  const interest = subs.length
+    ? await buildLeagueInterest(subs as SubscriptionWithUser[], season)
+    : new Map<string, Set<string>>();
+  return {
+    season,
+    week,
+    subscriptionCount: subs.length,
+    dmRouteCount: subs.filter((s) => s.isDm).length,
+    channelRouteCount: subs.filter((s) => !s.isDm).length,
+    leagueCount: interest.size,
+    sampleLeagueIds: [...interest.keys()].slice(0, 5),
+  };
+}
+
 export async function runNotificationPoll(client: Client, opts?: PollOptions): Promise<void> {
   const state = await getNflState();
   const season = state.league_season ?? state.season;
@@ -228,13 +259,28 @@ export async function runNotificationPoll(client: Client, opts?: PollOptions): P
   });
 
   if (!subs.length) {
+    log.info("poll_skip_no_subscriptions", { season, week });
     return;
   }
 
   const interest = await buildLeagueInterest(subs as SubscriptionWithUser[], season);
+  const leagueIds = [...interest.keys()];
+  if (!leagueIds.length) {
+    log.info("poll_skip_no_leagues", { season, week, subscriptionCount: subs.length });
+    return;
+  }
+
+  log.info("poll_start", {
+    season,
+    week,
+    subscriptionCount: subs.length,
+    leagueCount: leagueIds.length,
+    sampleLeagueIds: leagueIds.slice(0, 5),
+  });
+
   const memberCache = new Map<string, Set<string>>();
 
-  for (const leagueId of interest.keys()) {
+  for (const leagueId of leagueIds) {
     try {
       await processLeagueTransactions(
         client,
@@ -282,6 +328,8 @@ export async function runNotificationPoll(client: Client, opts?: PollOptions): P
   } catch (e) {
     log.error("poll_espn_failed", { err: e instanceof Error ? e.message : String(e) });
   }
+
+  log.info("poll_complete", { season, week, leagueCount: leagueIds.length });
 }
 
 async function runDailyLineupAlerts(

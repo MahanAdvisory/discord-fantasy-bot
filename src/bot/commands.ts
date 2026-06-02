@@ -32,7 +32,11 @@ import { buildLeagueUpdatesSummary } from "../services/updatesSummary.js";
 import { clearPermissionNotifiedFlagsForChannel } from "../discord/postWithPermissionHandling.js";
 import { truncateDiscordReply } from "../discord/contentLimits.js";
 import { log } from "../logging.js";
-import { runNotificationPoll, triggerDraftNotificationScan } from "../services/notifications/runPoll.js";
+import {
+  describePollReadiness,
+  runNotificationPoll,
+  triggerDraftNotificationScan,
+} from "../services/notifications/runPoll.js";
 import { buildFlexCheckSlashPages, runFlexCheckAcrossLeagues } from "../services/flexSlotCheck.js";
 import {
   buildCheckLineupSlashPages,
@@ -185,7 +189,7 @@ const slashCommandBuilders = [
     .setDescription("Post a test message here; clears permission-warning flags after a prior error"),
   new SlashCommandBuilder()
     .setName("poll-now")
-    .setDescription("Run one notification poll cycle now (Manage Server only)")
+    .setDescription("Run one notification poll cycle now (DM ok; server needs Manage Server)")
     .addBooleanOption((o) =>
       o
         .setName("replay")
@@ -292,7 +296,8 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     commandName !== "check-lineup" &&
     commandName !== "flex-check" &&
     commandName !== "draft-check" &&
-    commandName !== "draft-status"
+    commandName !== "draft-status" &&
+    commandName !== "poll-now"
   ) {
     await interaction.reply({ content: "Use this command in a server.", ...slashEphemeral(interaction) });
     return;
@@ -354,24 +359,21 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   }
 
   if (commandName === "poll-now") {
-    if (!interaction.inGuild()) {
-      await interaction.reply({
-        ...slashEphemeral(interaction),
-        content: "Use **/poll-now** in a server.",
-      });
-      return;
-    }
-    const canRun = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
-    if (!canRun) {
-      await interaction.reply({
-        ...slashEphemeral(interaction),
-        content: "You need **Manage Server** to run this command.",
-      });
-      return;
+    const isDm = slashIsDm(interaction);
+    if (!isDm) {
+      const canRun = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
+      if (!canRun) {
+        await interaction.reply({
+          ...slashEphemeral(interaction),
+          content: "You need **Manage Server** to run this command in a server. You can also run it in a **DM** with the bot.",
+        });
+        return;
+      }
     }
     await interaction.deferReply({ ...slashEphemeral(interaction) });
     const started = Date.now();
     try {
+      const before = await describePollReadiness();
       const replay = interaction.options.getBoolean("replay") ?? false;
       const replayLeagueId = interaction.options.getString("sleeper_league_id")?.trim() ?? null;
       let resetCount = 0;
@@ -392,12 +394,29 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
         forceReplayLeagueIds: replay ? new Set(replayLeagueId ? [replayLeagueId] : []) : undefined,
       });
       const ms = Date.now() - started;
+      const readiness =
+        `**Poll readiness** (Sleeper NFL ${before.season} week ${before.week}): ` +
+        `**${before.subscriptionCount}** route(s) (${before.dmRouteCount} DM, ${before.channelRouteCount} channel), ` +
+        `**${before.leagueCount}** league(s) to scan` +
+        (before.sampleLeagueIds.length
+          ? ` (e.g. \`${before.sampleLeagueIds.join("`, `")}\`)`
+          : "") +
+        ".\n";
+      const replayNote = replay
+        ? `Replay reset removed **${resetCount}** cursor row(s)` +
+          `${replayLeagueId ? ` for league \`${replayLeagueId}\`` : " across all leagues"}.`
+        : "";
       await interaction.editReply({
         content:
-          replay
-            ? `Poll cycle completed in **${ms}ms**. Replay reset removed **${resetCount}** cursor row(s)` +
-              `${replayLeagueId ? ` for league \`${replayLeagueId}\`` : " across all leagues"}.`
-            : `Poll cycle completed in **${ms}ms**.`,
+          readiness +
+          `Poll cycle completed in **${ms}ms**. ${replayNote}\n` +
+          (before.subscriptionCount === 0
+            ? "No routes in this database — run **/link** and **/subscribe** on this bot (Railway uses a separate DB from local dev)."
+            : before.leagueCount === 0
+              ? "Routes exist but no Sleeper leagues resolved — confirm **/link** username and NFL season."
+              : isDm
+                ? "If nothing landed in your DMs, check Railway logs for `poll_tx_scan`, `poll_tx_emit`, and `deliver_notification_dm_failed`."
+                : "If nothing posted, check Railway logs for `poll_tx_scan` (new activity) vs `poll_tx_emit` (fan-out) vs `deliver_notification_*_failed` (Discord delivery)."),
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
