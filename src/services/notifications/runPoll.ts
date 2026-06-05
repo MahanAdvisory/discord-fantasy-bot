@@ -1,14 +1,13 @@
 import type { Client } from "discord.js";
 import { prisma } from "../../db.js";
 import { ALL_LEAGUES_SCOPE, LINEUP_MONITOR_SUBSCRIPTION_CATEGORIES } from "../../domain/notifications.js";
-import { getLeague, getLeagueRosters, getLeagueTradedPicks, getNflState, getUserLeagues } from "../../sleeper/client.js";
+import { getLeague, getLeagueRosters, getNflState, getUserLeagues } from "../../sleeper/client.js";
+import { getDraft, getDraftPicks, getLeagueDrafts } from "../../sleeper/draftDetail.js";
 import {
-  getDraft,
-  getOnTheClockDraftSlot,
-  getDraftPicks,
-  getLeagueDrafts,
-  getOnTheClockPickerUserId,
-} from "../../sleeper/draftDetail.js";
+  resolveOnClockPrimaryUserId,
+  resolveOnClockRosterMemberIds,
+  userIsAmongOnClockMembers,
+} from "../../sleeper/rosterOwnership.js";
 import { getLeagueUsers } from "../../sleeper/leagueUsers.js";
 import { getLeagueTransactions, type SleeperTransaction } from "../../sleeper/transactionsApi.js";
 import { categoriesForTransaction, formatTransactionLine } from "./formatTransaction.js";
@@ -186,34 +185,6 @@ function computePickRound(draft: { settings?: { teams?: number } }, nextPickInde
   const teams = draft.settings?.teams;
   if (!teams || teams < 1) return null;
   return Math.floor(nextPickIndex / teams) + 1;
-}
-
-async function resolveOnClockOwnerUserId(
-  leagueId: string,
-  draft: Awaited<ReturnType<typeof getDraft>>,
-  nextPickIndex: number,
-): Promise<string | null> {
-  const slot = getOnTheClockDraftSlot(draft, nextPickIndex);
-  if (slot == null) return getOnTheClockPickerUserId(draft, nextPickIndex);
-  const baseRosterRaw = draft.slot_to_roster_id?.[String(slot)];
-  const baseRosterId = Number(baseRosterRaw);
-  if (!Number.isFinite(baseRosterId)) return getOnTheClockPickerUserId(draft, nextPickIndex);
-
-  const rosters = await getLeagueRosters(leagueId).catch(() => []);
-  const rosterOwner = new Map<number, string | null>(rosters.map((r) => [r.roster_id, r.owner_id]));
-
-  const round = computePickRound(draft, nextPickIndex);
-  if (round == null) return rosterOwner.get(baseRosterId) ?? null;
-
-  const traded = await getLeagueTradedPicks(leagueId).catch(() => []);
-  let ownerRosterId = baseRosterId;
-  for (const tp of traded) {
-    if (tp.round !== round) continue;
-    if (draft.season && tp.season && tp.season !== draft.season) continue;
-    if (tp.roster_id !== baseRosterId) continue;
-    if (typeof tp.owner_id === "number") ownerRosterId = tp.owner_id;
-  }
-  return rosterOwner.get(ownerRosterId) ?? null;
 }
 
 /** Snapshot for /poll-now and ops: are routes and Sleeper leagues visible to the poller? */
@@ -725,7 +696,7 @@ async function processLeagueDrafts(
       // One notification per poll: latest pick only (avoid spam when many picks land between hourly ticks).
       const p = newPicks[newPicks.length - 1]!;
       const picker = labels.get(p.picked_by) ?? `\`${p.picked_by}\``;
-      const currentOnClock = await resolveOnClockOwnerUserId(leagueId, draft, picks.length);
+      const currentOnClock = await resolveOnClockPrimaryUserId(leagueId, draft, picks.length);
       const onClockName = currentOnClock ? labels.get(currentOnClock) ?? `\`${currentOnClock}\`` : "unknown";
       let msg = `**${leagueName}** draft · Pick ${p.pick_no}: ${playerSummary(p)} by **${picker}**`;
       if (newPicks.length > 1) {
@@ -780,7 +751,8 @@ async function processLeagueDrafts(
     }
 
     const nextIdx = picks.length;
-    const onClock = await resolveOnClockOwnerUserId(leagueId, draft, nextIdx);
+    const onClockMembers = await resolveOnClockRosterMemberIds(leagueId, draft, nextIdx);
+    const onClock = onClockMembers[0] ?? null;
     const sequencePick = nextIdx + 1;
 
     if (onClock) {
@@ -792,7 +764,12 @@ async function processLeagueDrafts(
             (!s.sleeperDraftId || s.sleeperDraftId === dref.draft_id),
         ),
       );
-      const dmTurnSubs = allTurnSubs.filter((s) => s.isDm && s.user.sleeperUserId === onClock);
+      const dmTurnSubs = allTurnSubs.filter(
+        (s) =>
+          s.isDm &&
+          s.user.sleeperUserId != null &&
+          userIsAmongOnClockMembers(onClockMembers, s.user.sleeperUserId),
+      );
       const guildTurnSubs = allTurnSubs.filter((s) => !s.isDm);
       if ((dmTurnSubs.length || guildTurnSubs.length) && sequencePick > lastOnClock) {
         const dmMsg =

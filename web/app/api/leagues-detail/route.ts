@@ -2,6 +2,7 @@ import { requireSessionUser } from "@/lib/sessionUser";
 import { espnLeagueIdsFromJson } from "@fantasy/espn/linkedLeagues";
 import { buildEspnLeagueDetailRows, type EspnLeagueDetailRow } from "@fantasy/services/espnDashboard";
 import { getNflState, getUserLeagues, getLeagueRosters, type SleeperLeague } from "@fantasy/sleeper/client";
+import { findRosterForUser } from "@fantasy/sleeper/rosterOwnership";
 import { getDraft, getDraftPicks, getLeagueDrafts, getOnTheClockPickerUserId } from "@fantasy/sleeper/draftDetail";
 import { getLeagueUsers } from "@fantasy/sleeper/leagueUsers";
 import { analyzeLineupForLeague, loadPlayerLabels, loadProjectionMap } from "@fantasy/services/lineupCheck";
@@ -131,7 +132,7 @@ export async function GET(req: Request) {
   const out: Array<SleeperLeagueDetailRow | EspnLeagueDetailRow> = [];
   for (const l of leagues) {
     const rosters = await getLeagueRosters(l.league_id).catch(() => []);
-    const myRoster = rosters.find((r) => r.owner_id === user.sleeperUserId);
+    const myRoster = user.sleeperUserId ? findRosterForUser(rosters, user.sleeperUserId) : undefined;
     if (!myRoster) continue;
     const starters = (myRoster.starters ?? []).filter((p): p is string => typeof p === "string");
     const reserve = (myRoster.reserve ?? []).filter((p): p is string => typeof p === "string");

@@ -1,14 +1,15 @@
 import * as sleeper from "../sleeper/client.js";
 import type { SleeperDraft } from "../sleeper/client.js";
-import { getLeagueRosters, getLeagueTradedPicks } from "../sleeper/client.js";
 import {
   draftSlotForUserId,
   getDraft,
-  getOnTheClockDraftSlot,
   getDraftPicks,
   getLeagueDrafts,
-  getOnTheClockPickerUserId,
 } from "../sleeper/draftDetail.js";
+import {
+  resolveOnClockRosterMemberIds,
+  userIsAmongOnClockMembers,
+} from "../sleeper/rosterOwnership.js";
 import { getLeagueUsers } from "../sleeper/leagueUsers.js";
 import { sleeperDraftUrl, sleeperLeagueUrl } from "./notifications/links.js";
 
@@ -31,34 +32,6 @@ async function userLabelMap(leagueId: string): Promise<Map<string, string>> {
     /* Sleeper / network: still show pick # and slot; names may be ids only */
   }
   return m;
-}
-
-async function resolveOnClockOwnerUserId(
-  leagueId: string,
-  draft: Awaited<ReturnType<typeof getDraft>>,
-  nextPickIndex: number,
-): Promise<string | null> {
-  const slot = getOnTheClockDraftSlot(draft, nextPickIndex);
-  if (slot == null) return getOnTheClockPickerUserId(draft, nextPickIndex);
-
-  const baseRosterRaw = draft.slot_to_roster_id?.[String(slot)];
-  const baseRosterId = Number(baseRosterRaw);
-  if (!Number.isFinite(baseRosterId)) return getOnTheClockPickerUserId(draft, nextPickIndex);
-
-  const rosters = await getLeagueRosters(leagueId).catch(() => []);
-  const rosterOwner = new Map<number, string | null>(rosters.map((r) => [r.roster_id, r.owner_id]));
-  const teams = draft.settings?.teams;
-  if (!teams || teams < 1) return rosterOwner.get(baseRosterId) ?? null;
-  const round = Math.floor(nextPickIndex / teams) + 1;
-  const traded = await getLeagueTradedPicks(leagueId).catch(() => []);
-  let ownerRosterId = baseRosterId;
-  for (const tp of traded) {
-    if (tp.round !== round) continue;
-    if (draft.season && tp.season && tp.season !== draft.season) continue;
-    if (tp.roster_id !== baseRosterId) continue;
-    if (typeof tp.owner_id === "number") ownerRosterId = tp.owner_id;
-  }
-  return rosterOwner.get(ownerRosterId) ?? null;
 }
 
 /**
@@ -95,9 +68,10 @@ export async function linesForDraft(
 
   const nextIdx = picks.length;
   const sequencePick = nextIdx + 1;
-  const onClock = await resolveOnClockOwnerUserId(leagueId, detail, nextIdx);
+  const onClockMembers = await resolveOnClockRosterMemberIds(leagueId, detail, nextIdx);
+  const onClock = onClockMembers[0] ?? null;
   const onClockLabel = displayName(labels, onClock);
-  const you = onClock === forSleeperUserId ? " **(you)**" : "";
+  const you = userIsAmongOnClockMembers(onClockMembers, forSleeperUserId) ? " **(you)**" : "";
   const slot = draftSlotForUserId(detail, onClock);
   const slotPart = slot != null ? ` · draft slot **${slot}**` : "";
 
@@ -145,8 +119,8 @@ async function userIsOnClockInDraft(d: SleeperDraft, sleeperUserId: string): Pro
   const detail = await getDraft(d.draft_id).catch(() => null);
   if (!detail || detail.status !== "drafting") return false;
   const picks = await getDraftPicks(d.draft_id).catch(() => []);
-  const onClock = getOnTheClockPickerUserId(detail, picks.length);
-  return onClock === sleeperUserId;
+  const onClockMembers = await resolveOnClockRosterMemberIds(d.league_id, detail, picks.length);
+  return userIsAmongOnClockMembers(onClockMembers, sleeperUserId);
 }
 
 export type DraftListEntry = { draft: SleeperDraft; onClock: boolean };

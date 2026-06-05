@@ -31,6 +31,8 @@ export interface SleeperLeague {
 export interface SleeperRoster {
   roster_id: number;
   owner_id: string | null;
+  /** Additional Sleeper user ids with full roster control (co-managers). */
+  co_owners?: string[] | null;
   players?: string[] | null;
   starters?: string[] | null;
   reserve?: string[] | null;

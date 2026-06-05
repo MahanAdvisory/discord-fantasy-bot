@@ -1,4 +1,5 @@
 import { getLeague, getLeagueRosters, type NflState } from "../sleeper/client.js";
+import { findRosterForUser } from "../sleeper/rosterOwnership.js";
 import {
   formatKickoffEt,
   getTeamKickoffMsForNflWeek,
@@ -111,7 +112,7 @@ export async function analyzeFlexSwapsForLeague(
   if (!rosterPositions.length) return [];
 
   const rosters = await getLeagueRosters(leagueId).catch(() => []);
-  const roster = rosters.find((r) => r.owner_id === sleeperUserId);
+  const roster = findRosterForUser(rosters, sleeperUserId);
   if (!roster) return [];
 
   const starters = (roster.starters ?? []).filter((p): p is string => typeof p === "string" && p.length > 0);

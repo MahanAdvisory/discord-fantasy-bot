@@ -1,4 +1,5 @@
 import { getNflState, getUserLeagues, getLeagueRosters } from "@fantasy/sleeper/client";
+import { findRosterForUser } from "@fantasy/sleeper/rosterOwnership";
 import { getLeagueTransactions } from "@fantasy/sleeper/transactionsApi";
 import { getDraftPicks, getLeagueDrafts } from "@fantasy/sleeper/draftDetail";
 import { getLeagueUsers } from "@fantasy/sleeper/leagueUsers";
@@ -71,7 +72,8 @@ export async function GET(req: Request) {
         .map((x) => [x.user_id!, x.username?.trim() || x.display_name?.trim() || x.user_id!] as const),
     );
     const rosterLabels = new Map<number, string>();
-    const myRosterId = rosters.find((r) => r.owner_id === user.sleeperUserId)?.roster_id;
+    const myRosterId =
+      user.sleeperUserId != null ? findRosterForUser(rosters, user.sleeperUserId)?.roster_id : undefined;
     for (const r of rosters) {
       if (typeof r.roster_id !== "number") continue;
       const label = r.owner_id ? userLabels.get(r.owner_id) : null;

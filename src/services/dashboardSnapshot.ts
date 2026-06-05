@@ -11,6 +11,7 @@ import {
   getOnTheClockPickerUserId,
 } from "../sleeper/draftDetail.js";
 import { getLeagueUsers } from "../sleeper/leagueUsers.js";
+import { findRosterForUser } from "../sleeper/rosterOwnership.js";
 import type { DashboardDraftRow, DashboardLeagueRow, DashboardSnapshot } from "../domain/dashboard.js";
 import { sleeperDraftUrlPlain, sleeperLeagueUrlPlain } from "../domain/sleeperLinks.js";
 
@@ -63,7 +64,7 @@ export async function buildSleeperDashboardSnapshot(
 
   for (const l of leaguesRaw) {
     const rosters = await getLeagueRosters(l.league_id).catch(() => []);
-    const myRoster = rosters.find((r) => r.owner_id === sleeperUserId);
+    const myRoster = findRosterForUser(rosters, sleeperUserId);
     const wins = myRoster?.settings?.wins ?? 0;
     const losses = myRoster?.settings?.losses ?? 0;
     const ties = myRoster?.settings?.ties ?? 0;

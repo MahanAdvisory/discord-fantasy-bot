@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { ALL_LEAGUES_SCOPE, LINEUP_MONITOR_SUBSCRIPTION_CATEGORIES } from "../domain/notifications.js";
 import { getLeague, getLeagueRosters, getNflState, getUserLeagues } from "../sleeper/client.js";
+import { findRosterForUser } from "../sleeper/rosterOwnership.js";
 import { fetchWeeklyProjections } from "../sleeper/projections.js";
 import { sleeperLeagueTeamUrl } from "./notifications/links.js";
 import { fetchAllNflPlayers } from "../sleeper/playersFull.js";
@@ -264,7 +265,7 @@ export async function analyzeLineupForLeague(
     return { kind: "problem", leagueId, leagueName: leagueId, detail: `League \`${leagueId}\` not found on Sleeper.` };
   }
   const rosters = await getLeagueRosters(leagueId).catch(() => []);
-  const roster = rosters.find((r) => r.owner_id === sleeperUserId);
+  const roster = findRosterForUser(rosters, sleeperUserId);
   if (!roster) {
     return {
       kind: "problem",
