@@ -144,7 +144,7 @@ const slashCommandBuilders = [
     ),
   new SlashCommandBuilder()
     .setName("draft-check")
-    .setDescription("Fresh draft status: all drafting in DM; in server defaults to channel league")
+    .setDescription("Fresh draft status (snake on-clock or auction block/bids); DM = all leagues")
     .addStringOption((o) =>
       o
         .setName("sleeper_league_id")
@@ -152,7 +152,7 @@ const slashCommandBuilders = [
     ),
   new SlashCommandBuilder()
     .setName("draft-status")
-    .setDescription("Same as /draft-check: live drafts, pick #, on-the-clock team, last pick")
+    .setDescription("Live drafts: pick/on-clock (snake) or auction block, high bid, last won")
     .addStringOption((o) =>
       o
         .setName("sleeper_league_id")

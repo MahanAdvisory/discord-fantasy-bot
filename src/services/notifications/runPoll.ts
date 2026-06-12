@@ -5,6 +5,7 @@ import { getLeague, getLeagueRosters, getNflState, getUserLeagues } from "../../
 import { getDraft, getDraftPicks, getLeagueDrafts } from "../../sleeper/draftDetail.js";
 import {
   formatAuctionAmount,
+  formatTimerRemaining,
   isAuctionDraft,
   isAuctionTimerExpiringSoon,
   parseAuctionMetadata,
@@ -305,6 +306,10 @@ async function processAuctionDraftMetadata(
   }
 
   const draftUrl = `${sleeperDraftUrl(draftId)} · ${sleeperLeagueUrl(leagueId)}`;
+  const timerSuffix = (() => {
+    const t = formatTimerRemaining(meta.timer_end_at);
+    return t === "—" || t === "unknown" ? "" : ` · _${t} left_`;
+  })();
 
   if (
     meta.nominated_player_id &&
@@ -312,7 +317,7 @@ async function processAuctionDraftMetadata(
   ) {
     const player = await playerLabelById(meta.nominated_player_id);
     const msg =
-      `**${leagueName}** auction · **${teamLabel(labels, meta.nominating_user_id)}** nominated **${player}**\n` +
+      `**${leagueName}** auction · **${teamLabel(labels, meta.nominating_user_id)}** nominated **${player}**${timerSuffix}\n` +
       draftUrl;
     const deliveries = await deliverDraftStatusEvent(client, targets, {
       leagueId,
@@ -340,7 +345,7 @@ async function processAuctionDraftMetadata(
     const amount = formatAuctionAmount(meta.highest_offer);
     const prev = state.lastHighestOffer ? formatAuctionAmount(state.lastHighestOffer) : null;
     let msg =
-      `**${leagueName}** auction · **${player}** bid **${amount ?? meta.highest_offer}** by **${teamLabel(labels, meta.offering_user_id)}**`;
+      `**${leagueName}** auction · **${player}** bid **${amount ?? meta.highest_offer}** by **${teamLabel(labels, meta.offering_user_id)}**${timerSuffix}`;
     if (prev && prev !== amount) msg += ` _(was ${prev})_`;
     msg += `\n${draftUrl}`;
     const deliveries = await deliverDraftStatusEvent(client, targets, {

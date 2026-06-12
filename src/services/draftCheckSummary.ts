@@ -1,6 +1,12 @@
 import * as sleeper from "../sleeper/client.js";
 import type { SleeperDraft } from "../sleeper/client.js";
 import {
+  auctionDraftStatusLines,
+  isAuctionDraft,
+  parseAuctionMetadata,
+  pickPlayerSummary,
+} from "../sleeper/auctionDraft.js";
+import {
   draftSlotForUserId,
   getDraft,
   getDraftPicks,
@@ -11,7 +17,51 @@ import {
   userIsAmongOnClockMembers,
 } from "../sleeper/rosterOwnership.js";
 import { getLeagueUsers } from "../sleeper/leagueUsers.js";
+import { fetchAllNflPlayers } from "../sleeper/playersFull.js";
+import { prisma } from "../db.js";
 import { sleeperDraftUrl, sleeperLeagueUrl } from "./notifications/links.js";
+
+let playerCatalogCache: Map<string, string> | null = null;
+
+function playerLabelFromCatalog(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as { first_name?: string; last_name?: string; position?: string; team?: string; full_name?: string };
+  const name = d.full_name?.trim() || `${d.first_name ?? ""} ${d.last_name ?? ""}`.trim();
+  if (!name) return null;
+  const pos = d.position?.trim();
+  const team = d.team?.trim();
+  if (pos && team) return `${name} (${pos}, ${team})`;
+  if (pos) return `${name} (${pos})`;
+  return name;
+}
+
+async function ensurePlayerCatalogCache(): Promise<Map<string, string>> {
+  if (playerCatalogCache) return playerCatalogCache;
+  const raw = await fetchAllNflPlayers().catch(() => ({} as Record<string, unknown>));
+  const out = new Map<string, string>();
+  for (const [playerId, data] of Object.entries(raw)) {
+    const label = playerLabelFromCatalog(data);
+    if (label) out.set(playerId, label);
+  }
+  playerCatalogCache = out;
+  return out;
+}
+
+async function playerLabelById(playerId: string): Promise<string> {
+  const row = await prisma.sleeperPlayer.findUnique({
+    where: { playerId },
+    select: { data: true },
+  });
+  const fromDb = row ? playerLabelFromCatalog(row.data) : null;
+  if (fromDb) return fromDb;
+  const catalog = await ensurePlayerCatalogCache();
+  return catalog.get(playerId) ?? `\`${playerId}\``;
+}
+
+function teamLabel(labels: Map<string, string>, userId: string | null | undefined): string {
+  if (!userId) return "—";
+  return labels.get(userId) ?? `\`${userId}\``;
+}
 
 function displayName(users: Map<string, string>, userId: string | null): string {
   if (!userId) return "—";
@@ -61,6 +111,25 @@ export async function linesForDraft(
       (estTotal != null ? ` · picks ${picks.length}/${estTotal}` : ` · **${picks.length}** picks so far`),
   );
 
+  if (isAuctionDraft(detail)) {
+    const meta = parseAuctionMetadata(detail.metadata);
+    const playerLabels = new Map<string, string>();
+    if (meta.nominated_player_id) {
+      playerLabels.set(meta.nominated_player_id, await playerLabelById(meta.nominated_player_id));
+    }
+    out.push(
+      ...auctionDraftStatusLines({
+        status: detail.status,
+        metadata: detail.metadata,
+        picks,
+        teamLabel: (id) => teamLabel(labels, id),
+        playerLabel: (id) => playerLabels.get(id) ?? `\`${id}\``,
+      }),
+    );
+    out.push(`${sleeperDraftUrl(draftId)} · ${sleeperLeagueUrl(leagueId)}`);
+    return out;
+  }
+
   const t = detail.type?.toLowerCase();
   if (detail.status === "drafting" && t && t !== "snake" && t !== "linear") {
     out.push(`_On-the-clock may be unsupported for draft type \`${detail.type}\`._`);
@@ -89,14 +158,8 @@ export async function linesForDraft(
 
   const last = picks[picks.length - 1];
   if (last) {
-    const nm =
-      last.metadata?.last_name != null
-        ? `${last.metadata?.first_name ?? ""} ${last.metadata.last_name}`.trim()
-        : last.player_id;
-    const pos = last.metadata?.position ?? "?";
-    const nfl = last.metadata?.team?.trim();
     const pickedBy = labels.get(last.picked_by) ?? `\`${last.picked_by}\``;
-    out.push(`_Last pick (#${last.pick_no}):_ ${nfl ? `${nm} (${pos}, ${nfl})` : `${nm} (${pos})`} by **${pickedBy}**`);
+    out.push(`_Last pick (#${last.pick_no}):_ ${pickPlayerSummary(last)} by **${pickedBy}**`);
   } else {
     out.push(`_Last pick:_ —`);
   }
