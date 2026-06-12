@@ -2,7 +2,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db.js";
 import { log } from "../../logging.js";
 
-export type NotificationJournalKind = "transaction" | "draft_pick" | "draft_on_clock";
+export type NotificationJournalKind =
+  | "transaction"
+  | "draft_pick"
+  | "draft_on_clock"
+  | "draft_auction_nomination"
+  | "draft_auction_bid"
+  | "draft_auction_timer";
 
 export interface NotificationJournalInput {
   eventKey: string;
@@ -22,6 +28,12 @@ export const journalKeys = {
   transaction: (leagueId: string, transactionId: string) => `sleeper:v1:tx:${leagueId}:${transactionId}`,
   draftPick: (draftId: string, pickNo: number) => `sleeper:v1:draft:pick:${draftId}:${pickNo}`,
   draftOnClock: (draftId: string, sequencePick: number) => `sleeper:v1:draft:clock:${draftId}:${sequencePick}`,
+  draftAuctionNomination: (draftId: string, playerId: string) =>
+    `sleeper:v1:draft:auction:nom:${draftId}:${playerId}`,
+  draftAuctionBid: (draftId: string, playerId: string, amount: string, offeringUserId: string) =>
+    `sleeper:v1:draft:auction:bid:${draftId}:${playerId}:${amount}:${offeringUserId}`,
+  draftAuctionTimer: (draftId: string, playerId: string, timerEndAt: string) =>
+    `sleeper:v1:draft:auction:timer:${draftId}:${playerId}:${timerEndAt}`,
 };
 
 /**

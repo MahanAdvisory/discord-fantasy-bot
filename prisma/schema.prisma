@@ -198,6 +198,17 @@ model DraftPollCursor {
   /// Last `pick_no` we used for a draft_on_the_clock notification (Sleeper global pick number).
   lastOnClockPickNo Int @default(0) @map("last_on_clock_pick_no")
 
+  /// Auction: last seen nominated player (baseline for nomination alerts).
+  lastNominatedPlayerId String? @map("last_nominated_player_id")
+  /// Auction: last seen high bid amount string from metadata.
+  lastHighestOffer String? @map("last_highest_offer")
+  /// Auction: last seen high bidder Sleeper user id.
+  lastOfferingUserId String? @map("last_offering_user_id")
+  /// Auction: `metadata.timer_end_at` we last sent a ~10-minute warning for.
+  lastTimerWarnedEndAt String? @map("last_timer_warned_end_at")
+  /// Auction: `metadata.last_action_at` baseline (skip replay on first poll).
+  lastAuctionActionAt String? @map("last_auction_action_at")
+
   @@map("draft_poll_cursors")
 }
 

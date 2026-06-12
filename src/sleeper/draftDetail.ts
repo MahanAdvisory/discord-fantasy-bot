@@ -9,7 +9,19 @@ export interface SleeperDraftDetail {
   type?: string;
   season?: string;
   settings?: { teams?: number; rounds?: number; pick_timer?: number; reversal_round?: number | string };
-  metadata?: { name?: string; scoring_type?: string; third_round_reversal?: string };
+  metadata?: {
+    name?: string;
+    scoring_type?: string;
+    third_round_reversal?: string;
+    /** Auction draft live state (Sleeper stores these as strings). */
+    nominated_player_id?: string;
+    nominating_user_id?: string;
+    offering_user_id?: string;
+    highest_offer?: string;
+    timer_end_at?: string;
+    last_action_at?: string;
+    [key: string]: string | undefined;
+  };
   draft_order?: Record<string, number | string> | null;
   slot_to_roster_id?: Record<string, string | number> | null;
 }
@@ -21,7 +33,13 @@ export interface SleeperDraftPick {
   player_id: string;
   picked_by: string;
   roster_id: string;
-  metadata?: { first_name?: string; last_name?: string; position?: string; team?: string };
+  metadata?: {
+    first_name?: string;
+    last_name?: string;
+    position?: string;
+    team?: string;
+    amount?: string;
+  };
 }
 
 async function getJson<T>(url: string): Promise<T> {

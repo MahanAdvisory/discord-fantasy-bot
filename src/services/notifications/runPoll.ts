@@ -4,6 +4,14 @@ import { ALL_LEAGUES_SCOPE, LINEUP_MONITOR_SUBSCRIPTION_CATEGORIES } from "../..
 import { getLeague, getLeagueRosters, getNflState, getUserLeagues } from "../../sleeper/client.js";
 import { getDraft, getDraftPicks, getLeagueDrafts } from "../../sleeper/draftDetail.js";
 import {
+  formatAuctionAmount,
+  isAuctionDraft,
+  isAuctionTimerExpiringSoon,
+  parseAuctionMetadata,
+  parseTimerEndAt,
+  pickWinningAmount,
+} from "../../sleeper/auctionDraft.js";
+import {
   resolveOnClockPrimaryUserId,
   resolveOnClockRosterMemberIds,
   userIsAmongOnClockMembers,
@@ -181,10 +189,270 @@ async function ensureFullPlayerCatalogCache(): Promise<Map<string, string>> {
   return out;
 }
 
-function computePickRound(draft: { settings?: { teams?: number } }, nextPickIndex: number): number | null {
-  const teams = draft.settings?.teams;
-  if (!teams || teams < 1) return null;
-  return Math.floor(nextPickIndex / teams) + 1;
+async function playerLabelById(playerId: string): Promise<string> {
+  const row = await prisma.sleeperPlayer.findUnique({
+    where: { playerId },
+    select: { data: true },
+  });
+  const fromDb = row ? playerLabelFromCatalog(row.data) : null;
+  if (fromDb) return fromDb;
+  const catalog = await ensureFullPlayerCatalogCache();
+  return catalog.get(playerId) ?? `\`${playerId}\``;
+}
+
+type AuctionCursorPatch = {
+  lastNominatedPlayerId: string | null;
+  lastHighestOffer: string | null;
+  lastOfferingUserId: string | null;
+  lastTimerWarnedEndAt: string | null;
+  lastAuctionActionAt: string | null;
+};
+
+function teamLabel(labels: Map<string, string>, userId: string | undefined): string {
+  if (!userId) return "unknown";
+  return labels.get(userId) ?? `\`${userId}\``;
+}
+
+async function deliverDraftStatusEvent(
+  client: Client,
+  targets: SubscriptionWithUser[],
+  args: {
+    leagueId: string;
+    draftId: string;
+    leagueName: string;
+    content: string;
+    eventKey: string;
+    kind: "draft_auction_nomination" | "draft_auction_bid" | "draft_auction_timer";
+    meta?: Record<string, unknown>;
+  },
+): Promise<number> {
+  if (!targets.length) return 0;
+  const claimed = await recordNotificationJournalEntry({
+    eventKey: args.eventKey,
+    kind: args.kind,
+    leagueId: args.leagueId,
+    draftId: args.draftId,
+    targetCount: 0,
+    meta: { leagueName: args.leagueName, ...args.meta },
+  });
+  if (!claimed) {
+    log.info("poll_draft_skip_auction_claimed", { draftId: args.draftId, eventKey: args.eventKey });
+    return 0;
+  }
+  let deliveries = 0;
+  for (const sub of targets) {
+    await deliverNotification(client, sub, { content: args.content.slice(0, 2000) });
+    deliveries++;
+  }
+  await finalizeNotificationJournalEntry(args.eventKey, deliveries, { leagueName: args.leagueName, ...args.meta });
+  return deliveries;
+}
+
+async function processAuctionDraftMetadata(
+  client: Client,
+  subs: SubscriptionWithUser[],
+  members: Set<string>,
+  leagueId: string,
+  leagueName: string,
+  draftId: string,
+  draft: { metadata?: Record<string, string | undefined> },
+  existing: {
+    lastNominatedPlayerId?: string | null;
+    lastHighestOffer?: string | null;
+    lastOfferingUserId?: string | null;
+    lastTimerWarnedEndAt?: string | null;
+    lastAuctionActionAt?: string | null;
+  } | null,
+  labels: Map<string, string>,
+  opts?: { pickJustLanded?: boolean },
+): Promise<AuctionCursorPatch> {
+  const meta = parseAuctionMetadata(draft.metadata);
+  const state: AuctionCursorPatch = {
+    lastNominatedPlayerId: existing?.lastNominatedPlayerId ?? null,
+    lastHighestOffer: existing?.lastHighestOffer ?? null,
+    lastOfferingUserId: existing?.lastOfferingUserId ?? null,
+    lastTimerWarnedEndAt: existing?.lastTimerWarnedEndAt ?? null,
+    lastAuctionActionAt: existing?.lastAuctionActionAt ?? null,
+  };
+
+  const applyCurrent = (): AuctionCursorPatch => ({
+    lastNominatedPlayerId: meta.nominated_player_id ?? state.lastNominatedPlayerId,
+    lastHighestOffer: meta.highest_offer ?? state.lastHighestOffer,
+    lastOfferingUserId: meta.offering_user_id ?? state.lastOfferingUserId,
+    lastTimerWarnedEndAt:
+      meta.timer_end_at && isAuctionTimerExpiringSoon(meta.timer_end_at)
+        ? meta.timer_end_at
+        : state.lastTimerWarnedEndAt,
+    lastAuctionActionAt: meta.last_action_at ?? state.lastAuctionActionAt,
+  });
+
+  const targets = dedupeSubsByDestination(
+    subs.filter(
+      (s) =>
+        s.category === "draft_status" &&
+        subMatchesLeagueUser(s, leagueId, members) &&
+        (!s.sleeperDraftId || s.sleeperDraftId === draftId),
+    ),
+  );
+
+  if (!targets.length) {
+    return applyCurrent();
+  }
+
+  const baselining = !existing?.lastAuctionActionAt;
+  if (baselining || opts?.pickJustLanded) {
+    return applyCurrent();
+  }
+
+  const draftUrl = `${sleeperDraftUrl(draftId)} · ${sleeperLeagueUrl(leagueId)}`;
+
+  if (
+    meta.nominated_player_id &&
+    meta.nominated_player_id !== state.lastNominatedPlayerId
+  ) {
+    const player = await playerLabelById(meta.nominated_player_id);
+    const msg =
+      `**${leagueName}** auction · **${teamLabel(labels, meta.nominating_user_id)}** nominated **${player}**\n` +
+      draftUrl;
+    const deliveries = await deliverDraftStatusEvent(client, targets, {
+      leagueId,
+      draftId,
+      leagueName,
+      content: msg,
+      eventKey: journalKeys.draftAuctionNomination(draftId, meta.nominated_player_id),
+      kind: "draft_auction_nomination",
+      meta: { playerId: meta.nominated_player_id },
+    });
+    log.info("poll_draft_emit_auction_nomination", { leagueId, draftId, deliveries });
+    state.lastNominatedPlayerId = meta.nominated_player_id;
+    state.lastHighestOffer = meta.highest_offer ?? null;
+    state.lastOfferingUserId = meta.offering_user_id ?? null;
+    state.lastTimerWarnedEndAt = null;
+  }
+
+  if (
+    meta.nominated_player_id &&
+    meta.highest_offer &&
+    meta.nominated_player_id === state.lastNominatedPlayerId &&
+    (meta.highest_offer !== state.lastHighestOffer || meta.offering_user_id !== state.lastOfferingUserId)
+  ) {
+    const player = await playerLabelById(meta.nominated_player_id);
+    const amount = formatAuctionAmount(meta.highest_offer);
+    const prev = state.lastHighestOffer ? formatAuctionAmount(state.lastHighestOffer) : null;
+    let msg =
+      `**${leagueName}** auction · **${player}** bid **${amount ?? meta.highest_offer}** by **${teamLabel(labels, meta.offering_user_id)}**`;
+    if (prev && prev !== amount) msg += ` _(was ${prev})_`;
+    msg += `\n${draftUrl}`;
+    const deliveries = await deliverDraftStatusEvent(client, targets, {
+      leagueId,
+      draftId,
+      leagueName,
+      content: msg,
+      eventKey: journalKeys.draftAuctionBid(
+        draftId,
+        meta.nominated_player_id,
+        meta.highest_offer,
+        meta.offering_user_id ?? "",
+      ),
+      kind: "draft_auction_bid",
+      meta: { playerId: meta.nominated_player_id, amount: meta.highest_offer },
+    });
+    log.info("poll_draft_emit_auction_bid", { leagueId, draftId, deliveries });
+    state.lastHighestOffer = meta.highest_offer;
+    state.lastOfferingUserId = meta.offering_user_id ?? null;
+  }
+
+  if (
+    meta.nominated_player_id &&
+    meta.timer_end_at &&
+    isAuctionTimerExpiringSoon(meta.timer_end_at) &&
+    meta.timer_end_at !== state.lastTimerWarnedEndAt
+  ) {
+    const end = parseTimerEndAt(meta.timer_end_at)!;
+    const minsLeft = Math.max(1, Math.ceil((end.getTime() - Date.now()) / 60_000));
+    const player = await playerLabelById(meta.nominated_player_id);
+    const amount = formatAuctionAmount(meta.highest_offer);
+    let msg =
+      `**${leagueName}** auction · **${player}** bidding closes in ~${minsLeft} min`;
+    if (amount) {
+      msg += ` (high bid **${amount}** by **${teamLabel(labels, meta.offering_user_id)}**)`;
+    }
+    msg += `\n${draftUrl}`;
+    const deliveries = await deliverDraftStatusEvent(client, targets, {
+      leagueId,
+      draftId,
+      leagueName,
+      content: msg,
+      eventKey: journalKeys.draftAuctionTimer(draftId, meta.nominated_player_id, meta.timer_end_at),
+      kind: "draft_auction_timer",
+      meta: { playerId: meta.nominated_player_id, timerEndAt: meta.timer_end_at },
+    });
+    log.info("poll_draft_emit_auction_timer", { leagueId, draftId, deliveries, minsLeft });
+    state.lastTimerWarnedEndAt = meta.timer_end_at;
+  }
+
+  if (meta.last_action_at) state.lastAuctionActionAt = meta.last_action_at;
+  return state;
+}
+
+/** Leagues with a live auction draft whose offering timer expires within 10 minutes. */
+export async function findLeaguesWithExpiringAuctionDrafts(season: string): Promise<string[]> {
+  const subs = await prisma.notificationSubscription.findMany({
+    where: {
+      user: { sleeperUserId: { not: null } },
+      category: "draft_status",
+    },
+    include: { user: true },
+  });
+  if (!subs.length) return [];
+
+  const interest = await buildLeagueInterest(subs as SubscriptionWithUser[], season);
+  const hot: string[] = [];
+  for (const leagueId of interest.keys()) {
+    if (await leagueHasExpiringAuctionDraft(leagueId)) hot.push(leagueId);
+  }
+  return hot;
+}
+
+async function leagueHasExpiringAuctionDraft(leagueId: string): Promise<boolean> {
+  const drafts = await getLeagueDrafts(leagueId).catch(() => []);
+  for (const d of drafts) {
+    if (d.status !== "drafting") continue;
+    const detail = await getDraft(d.draft_id).catch(() => null);
+    if (!detail || !isAuctionDraft(detail)) continue;
+    const meta = parseAuctionMetadata(detail.metadata);
+    if (meta.nominated_player_id && isAuctionTimerExpiringSoon(meta.timer_end_at)) return true;
+  }
+  return false;
+}
+
+/** Fast poll for auction drafts in the final 10 minutes of a nomination/bid timer. */
+export async function runAuctionDraftFastPoll(client: Client): Promise<void> {
+  const state = await getNflState();
+  const season = state.league_season ?? state.season;
+  const leagueIds = await findLeaguesWithExpiringAuctionDrafts(season);
+  if (!leagueIds.length) return;
+
+  const subs = await prisma.notificationSubscription.findMany({
+    where: { user: { sleeperUserId: { not: null } } },
+    include: { user: true },
+  });
+  if (!subs.length) return;
+
+  log.info("poll_auction_fast_start", { leagueCount: leagueIds.length, leagueIds });
+  const memberCache = new Map<string, Set<string>>();
+  const interest = new Map(leagueIds.map((id) => [id, new Set<string>()]));
+  for (const leagueId of leagueIds) {
+    try {
+      await processLeagueDrafts(client, subs as SubscriptionWithUser[], interest, memberCache, leagueId);
+    } catch (e) {
+      log.error("poll_auction_fast_league_failed", {
+        leagueId,
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+  log.info("poll_auction_fast_complete", { leagueCount: leagueIds.length });
 }
 
 /** Snapshot for /poll-now and ops: are routes and Sleeper leagues visible to the poller? */
@@ -670,10 +938,11 @@ async function processLeagueDrafts(
     const draft = await getDraft(dref.draft_id).catch(() => null);
     if (!draft || draft.status !== "drafting") continue;
 
+    const isAuction = isAuctionDraft(draft);
     const onClockType = draft.type?.toLowerCase();
     const onClockSupported =
       !onClockType || onClockType === "snake" || onClockType === "linear";
-    if (!onClockSupported && !warnedUnsupportedOnClockDraftIds.has(dref.draft_id)) {
+    if (!onClockSupported && !isAuction && !warnedUnsupportedOnClockDraftIds.has(dref.draft_id)) {
       warnedUnsupportedOnClockDraftIds.add(dref.draft_id);
       log.info("poll_draft_on_clock_unsupported_type", { draftId: dref.draft_id, draftType: draft.type });
     }
@@ -683,9 +952,11 @@ async function processLeagueDrafts(
 
     let lastSeen = existing?.lastSeenPickCount ?? 0;
     let lastOnClock = existing?.lastOnClockPickNo ?? 0;
+    const pickCountBefore = lastSeen;
     log.info("poll_draft_scan", {
       leagueId,
       draftId: dref.draft_id,
+      draftType: draft.type,
       picks: picks.length,
       lastSeen,
       lastOnClock,
@@ -696,13 +967,18 @@ async function processLeagueDrafts(
       // One notification per poll: latest pick only (avoid spam when many picks land between hourly ticks).
       const p = newPicks[newPicks.length - 1]!;
       const picker = labels.get(p.picked_by) ?? `\`${p.picked_by}\``;
-      const currentOnClock = await resolveOnClockPrimaryUserId(leagueId, draft, picks.length);
-      const onClockName = currentOnClock ? labels.get(currentOnClock) ?? `\`${currentOnClock}\`` : "unknown";
-      let msg = `**${leagueName}** draft · Pick ${p.pick_no}: ${playerSummary(p)} by **${picker}**`;
+      const amount = isAuction ? pickWinningAmount(p) : null;
+      let msg = isAuction
+        ? `**${leagueName}** auction · Pick ${p.pick_no}: ${playerSummary(p)} for **${amount ?? "?"}** by **${picker}**`
+        : `**${leagueName}** draft · Pick ${p.pick_no}: ${playerSummary(p)} by **${picker}**`;
       if (newPicks.length > 1) {
         msg += ` _(${newPicks.length - 1} earlier pick(s) since last check skipped)_`;
       }
-      msg += `\n_On the clock:_ **${onClockName}**`;
+      if (!isAuction) {
+        const currentOnClock = await resolveOnClockPrimaryUserId(leagueId, draft, picks.length);
+        const onClockName = currentOnClock ? labels.get(currentOnClock) ?? `\`${currentOnClock}\`` : "unknown";
+        msg += `\n_On the clock:_ **${onClockName}**`;
+      }
       msg += `\n${sleeperDraftUrl(dref.draft_id)} · ${sleeperLeagueUrl(leagueId)}`;
       const targets = dedupeSubsByDestination(
         subs.filter(
@@ -750,12 +1026,30 @@ async function processLeagueDrafts(
       lastSeen = picks.length;
     }
 
+    let auctionPatch: AuctionCursorPatch | null = null;
+    if (isAuction) {
+      auctionPatch = await processAuctionDraftMetadata(
+        client,
+        subs,
+        members,
+        leagueId,
+        leagueName,
+        dref.draft_id,
+        draft,
+        existing,
+        labels,
+        { pickJustLanded: picks.length > pickCountBefore },
+      );
+    }
+
     const nextIdx = picks.length;
-    const onClockMembers = await resolveOnClockRosterMemberIds(leagueId, draft, nextIdx);
+    const onClockMembers = onClockSupported
+      ? await resolveOnClockRosterMemberIds(leagueId, draft, nextIdx)
+      : [];
     const onClock = onClockMembers[0] ?? null;
     const sequencePick = nextIdx + 1;
 
-    if (onClock) {
+    if (onClockSupported && onClock) {
       const allTurnSubs = dedupeSubsByDestination(
         subs.filter(
           (s) =>
@@ -827,10 +1121,12 @@ async function processLeagueDrafts(
         draftId: dref.draft_id,
         lastSeenPickCount: lastSeen,
         lastOnClockPickNo: lastOnClock,
+        ...(auctionPatch ?? {}),
       },
       update: {
         lastSeenPickCount: lastSeen,
         lastOnClockPickNo: lastOnClock,
+        ...(auctionPatch ?? {}),
       },
     });
   }

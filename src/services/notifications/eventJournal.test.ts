@@ -14,3 +14,14 @@ test("journalKeys.draftPick encodes draft and pick number", () => {
 test("journalKeys.draftOnClock encodes sequence pick", () => {
   assert.equal(journalKeys.draftOnClock("D1", 12), "sleeper:v1:draft:clock:D1:12");
 });
+
+test("journalKeys.draftAuctionNomination encodes draft and player", () => {
+  assert.equal(journalKeys.draftAuctionNomination("D1", "P1"), "sleeper:v1:draft:auction:nom:D1:P1");
+});
+
+test("journalKeys.draftAuctionTimer encodes timer end", () => {
+  assert.equal(
+    journalKeys.draftAuctionTimer("D1", "P1", "2026-06-13T03:10:41Z"),
+    "sleeper:v1:draft:auction:timer:D1:P1:2026-06-13T03:10:41Z",
+  );
+});

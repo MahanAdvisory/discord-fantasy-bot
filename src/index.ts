@@ -8,6 +8,7 @@ import {
   userHasActiveCommercialAccess,
 } from "./entitlement.js";
 import { runHourlyDigest } from "./jobs/hourly.js";
+import { scheduleAuctionDraftFastPoll } from "./jobs/auctionDraftPoll.js";
 import { log } from "./logging.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -57,6 +58,7 @@ client.once(Events.ClientReady, (c) => {
   void runHourlyDigest(c).catch((err) =>
     log.error("hourly_digest_initial_failed", { err: err instanceof Error ? err.message : String(err) }),
   );
+  scheduleAuctionDraftFastPoll(c);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

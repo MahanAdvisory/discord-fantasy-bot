@@ -24,7 +24,7 @@ export function isNotificationCategory(value: string): value is NotificationCate
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> = {
   draft_on_the_clock: "Draft: your pick is up",
-  draft_status: "Draft: general (round/pick updates)",
+  draft_status: "Draft: picks, nominations, bids, and timer alerts",
   transactions: "Trades and adds/drops",
   waivers: "Waiver results / FAAB",
   lineup_alerts: "Lineup issues (bye/IR/out) + suggestions",
