@@ -6,7 +6,7 @@ import { buildDraftLiveSnapshot } from "./draftLiveSnapshot.js";
 test("pickPlayerSummary and amount on last pick shape", () => {
   const summary = pickPlayerSummary({
     player_id: "4984",
-    metadata: { first_name: "Josh", last_name: "Allen", position: "QB", team: "BUF", amount: "242" },
+    metadata: { first_name: "Josh", last_name: "Allen", position: "QB", team: "BUF" },
   });
   assert.equal(summary, "Josh Allen (QB, BUF)");
   assert.equal(formatAuctionAmount("242"), "$242");
