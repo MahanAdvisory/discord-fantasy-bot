@@ -38,6 +38,19 @@ export interface DashboardDraftRow {
   onTheClockLabel?: string | null;
   draftUrl: string;
   leagueUrl: string;
+  lastPick?: {
+    pickNo: number;
+    player: string;
+    amount: string | null;
+    winner: string;
+  } | null;
+  auction?: {
+    onTheBlock: string | null;
+    timeLeft: string;
+    highBid: string | null;
+    highBidder: string | null;
+    nominatedBy: string | null;
+  } | null;
 }
 
 export interface DashboardSnapshot {

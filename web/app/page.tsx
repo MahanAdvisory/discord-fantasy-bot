@@ -1,6 +1,7 @@
 "use client";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DraftLiveSnapshotPanel, type DraftLiveSnapshotView } from "@/components/DraftLiveSnapshotPanel";
 
 type TabKey = "drafts" | "leagues" | "lineup" | "activity" | "waivers" | "notification_settings";
 type Dashboard = Awaited<ReturnType<typeof fetchDashboard>> | null;
@@ -11,7 +12,24 @@ type Activity = {
 } | null;
 type Subscriptions = { categories: string[]; routes: { id: string; isDm: boolean; provider: string; sleeperLeagueScope: string; category: string; leagueScopeLabel: string; destinationLabel: string }[] } | null;
 type Waivers = { season: string; week: number; cached: boolean; generatedAt: string; leagues: { provider?: "sleeper" | "espn"; leagueId: string; leagueName: string; leagueUrl: string; waiverRunAt: string | null; waiverRunDayOffset: number | null; players: { playerId: string; name: string; position: string | null; team: string | null; ownershipPct: number; lastWeekPoints: number; last3WeeksPoints: number }[] }[] } | null;
-type LeagueDetails = { leagues: { provider?: "sleeper" | "espn"; leagueId: string; leagueName: string; status: string; draftId: string | null; draftSnapshot: { draftId: string; picksComplete: number; nextPickNumber: number; onTheClock: string | null; draftUrl: string } | null; wins: number; losses: number; ties: number; recordPct: number; waiverRunDay: string; lineupHasIssue: boolean; lineupUrl: string; rosterBuckets: { label: string; players: string[] }[] }[] } | null;
+type LeagueDetails = {
+  leagues: {
+    provider?: "sleeper" | "espn";
+    leagueId: string;
+    leagueName: string;
+    status: string;
+    draftId: string | null;
+    draftSnapshot: DraftLiveSnapshotView | null;
+    wins: number;
+    losses: number;
+    ties: number;
+    recordPct: number;
+    waiverRunDay: string;
+    lineupHasIssue: boolean;
+    lineupUrl: string;
+    rosterBuckets: { label: string; players: string[] }[];
+  }[];
+} | null;
 type AccountStatus = {
   authenticated: boolean;
   linkedMethods: { email: boolean; discord: boolean; google: boolean; sleeper: boolean };
@@ -32,6 +50,9 @@ async function fetchDashboard() {
       onTheClockLabel: string | null;
       draftUrl: string;
       provider?: "sleeper" | "espn";
+      draftType?: string | null;
+      lastPick?: DraftLiveSnapshotView["lastPick"];
+      auction?: DraftLiveSnapshotView["auction"];
     }[];
   };
 }
@@ -566,12 +587,22 @@ export default function Home() {
               <ul className="space-y-3">
                 {dashboard.activeDrafts.map((d) => (
                   <li key={d.draftId} className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-                    <p className="flex items-center gap-2 font-medium">
+                    <p className="mb-3 flex items-center gap-2 font-medium">
                       <LeagueProviderIcon provider={d.provider} />
                       {d.leagueName}
                     </p>
-                    <p className="text-sm text-zinc-500">{d.pickCount} picks · On the clock: {d.onTheClockLabel ?? "—"}</p>
-                    <a href={d.draftUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline dark:text-blue-400">Open draft</a>
+                    <DraftLiveSnapshotPanel
+                      snapshot={{
+                        draftId: d.draftId,
+                        draftType: d.draftType,
+                        picksComplete: d.pickCount,
+                        nextPickNumber: d.pickCount + 1,
+                        draftUrl: d.draftUrl,
+                        onTheClock: d.onTheClockLabel,
+                        lastPick: d.lastPick,
+                        auction: d.auction,
+                      }}
+                    />
                   </li>
                 ))}
               </ul>
@@ -867,28 +898,7 @@ export default function Home() {
                                 {l.status.toLowerCase() === "drafting" && l.draftSnapshot ? (
                                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/50 dark:bg-amber-950/35">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">Draft status</p>
-                                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                                      <p>
-                                        <span className="text-zinc-600 dark:text-zinc-400">Next pick:</span>{" "}
-                                        <strong className="text-zinc-900 dark:text-zinc-100">{l.draftSnapshot.nextPickNumber}</strong>
-                                        <span className="text-zinc-500"> ({l.draftSnapshot.picksComplete} completed)</span>
-                                      </p>
-                                      <a
-                                        href={
-                                          l.draftSnapshot.draftUrl ||
-                                          `https://sleeper.com/draft/nfl/${l.draftSnapshot.draftId}`
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="shrink-0 text-blue-600 underline dark:text-blue-400"
-                                      >
-                                        Open draft
-                                      </a>
-                                    </div>
-                                    <p className="mt-2 text-sm">
-                                      <span className="text-zinc-600 dark:text-zinc-400">On the clock:</span>{" "}
-                                      <strong className="text-zinc-900 dark:text-zinc-100">{l.draftSnapshot.onTheClock ?? "—"}</strong>
-                                    </p>
+                                    <DraftLiveSnapshotPanel snapshot={l.draftSnapshot} />
                                   </div>
                                 ) : l.status.toLowerCase() === "drafting" && !l.draftSnapshot ? (
                                   <p className="mb-4 text-xs text-zinc-500">Draft status unavailable for this league.</p>

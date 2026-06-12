@@ -17,13 +17,7 @@ type ActivityFeedItem = {
   url: string;
 };
 
-function playerSummary(p: { player_id: string; metadata?: { first_name?: string; last_name?: string; position?: string; team?: string } }): string {
-  const name =
-    p.metadata?.last_name != null ? `${p.metadata?.first_name ?? ""} ${p.metadata.last_name}`.trim() : p.player_id;
-  const pos = p.metadata?.position ?? "?";
-  const team = p.metadata?.team?.trim();
-  return team ? `${name} (${pos}, ${team})` : `${name} (${pos})`;
-}
+import { pickWinningAmount, pickPlayerSummary } from "@fantasy/sleeper/auctionDraft";
 
 export async function GET(req: Request) {
   const { user } = await requireSessionUser();
@@ -111,7 +105,11 @@ export async function GET(req: Request) {
       for (const p of tail) {
         if (involvesMyTeam && p.picked_by !== user.sleeperUserId) continue;
         const picker = userLabels.get(p.picked_by) ?? p.picked_by;
-        const text = `${leagueName} draft · Pick ${p.pick_no}: ${playerSummary(p)} by ${picker}`;
+        const amount = pickWinningAmount(p);
+        const player = pickPlayerSummary(p);
+        const text = amount
+          ? `${leagueName} auction · Pick ${p.pick_no}: ${player} for ${amount} by ${picker}`
+          : `${leagueName} draft · Pick ${p.pick_no}: ${player} by ${picker}`;
         items.push({
           id: `pick:${d.draft_id}:${p.pick_no}`,
           leagueId,

@@ -3,8 +3,8 @@ import { espnLeagueIdsFromJson } from "@fantasy/espn/linkedLeagues";
 import { buildEspnLeagueDetailRows, type EspnLeagueDetailRow } from "@fantasy/services/espnDashboard";
 import { getNflState, getUserLeagues, getLeagueRosters, type SleeperLeague } from "@fantasy/sleeper/client";
 import { findRosterForUser } from "@fantasy/sleeper/rosterOwnership";
-import { getDraft, getDraftPicks, getLeagueDrafts, getOnTheClockPickerUserId } from "@fantasy/sleeper/draftDetail";
-import { getLeagueUsers } from "@fantasy/sleeper/leagueUsers";
+import { getLeagueDrafts } from "@fantasy/sleeper/draftDetail";
+import { buildDraftLiveSnapshot, type DraftLiveSnapshot } from "@fantasy/sleeper/draftLiveSnapshot";
 import { analyzeLineupForLeague, loadPlayerLabels, loadProjectionMap } from "@fantasy/services/lineupCheck";
 
 type Bucket = { label: string; players: string[] };
@@ -39,13 +39,7 @@ function rosterMatchesPlayerQuery(buckets: Bucket[], qNormalized: string): boole
   return labels.some((label) => tokens.every((t) => label.includes(t)));
 }
 
-type LeagueDraftSnapshot = {
-  draftId: string;
-  picksComplete: number;
-  nextPickNumber: number;
-  onTheClock: string | null;
-  draftUrl: string;
-};
+type LeagueDraftSnapshot = DraftLiveSnapshot;
 
 async function draftSnapshotForLeague(l: SleeperLeague): Promise<LeagueDraftSnapshot | null> {
   if (l.status.trim().toLowerCase() !== "drafting") return null;
@@ -53,38 +47,7 @@ async function draftSnapshotForLeague(l: SleeperLeague): Promise<LeagueDraftSnap
   const active = drafts.find((d) => d.status === "drafting");
   const draftId = active?.draft_id ?? l.draft_id;
   if (!draftId) return null;
-
-  const [detail, picks, users] = await Promise.all([
-    getDraft(draftId).catch(() => null),
-    getDraftPicks(draftId).catch(() => []),
-    getLeagueUsers(l.league_id).catch(() => []),
-  ]);
-
-  const userLabels = new Map<string, string>();
-  for (const u of users) {
-    if (!u.user_id) continue;
-    const label =
-      u.username?.trim() ||
-      u.display_name?.trim() ||
-      u.metadata?.team_name?.trim() ||
-      u.user_id;
-    userLabels.set(u.user_id, label);
-  }
-
-  let onTheClock: string | null = null;
-  if (detail) {
-    const uid = getOnTheClockPickerUserId(detail, picks.length);
-    if (uid) onTheClock = userLabels.get(uid) ?? uid;
-  }
-
-  const n = picks.length;
-  return {
-    draftId,
-    picksComplete: n,
-    nextPickNumber: n + 1,
-    onTheClock,
-    draftUrl: `https://sleeper.com/draft/nfl/${draftId}`,
-  };
+  return buildDraftLiveSnapshot(l.league_id, draftId);
 }
 
 export async function GET(req: Request) {
