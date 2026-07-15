@@ -1,6 +1,6 @@
 import { EmbedBuilder } from "discord.js";
 import type { ScoringPreset } from "../../domain/fantasyScoring.js";
-import type { StatsPlayerRow } from "./leaderboardQuery.js";
+import type { LeaderboardMinimumVolume, StatsPlayerRow } from "./leaderboardQuery.js";
 
 function n(v: number | null | undefined, digits = 1): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -178,8 +178,9 @@ export function buildLeadersEmbed(args: {
   metric: string;
   scoring: ScoringPreset;
   team?: string | null;
+  minimumVolume?: LeaderboardMinimumVolume | null;
 }): EmbedBuilder {
-  const { players, season, week, position, metric, scoring, team } = args;
+  const { players, season, week, position, metric, scoring, team, minimumVolume } = args;
   const when = week == null ? `${season} season` : `${season} W${week}`;
   const label = METRIC_LABELS[metric] ?? metric.toUpperCase();
   const lines: string[] = [];
@@ -198,6 +199,7 @@ export function buildLeadersEmbed(args: {
     .setFooter({
       text:
         "Data: nflverse / nflfastR · ffopportunity · FTN when present" +
+        (minimumVolume ? ` · min ${minimumVolume.value} ${minimumVolume.unit}` : "") +
         (team ? ` · ${team} filter; rows without team data are excluded` : ""),
     });
 }

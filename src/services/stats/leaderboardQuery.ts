@@ -115,6 +115,29 @@ export type LeaderboardSortKey =
   | "player"
   | "team";
 
+export type LeaderboardMinimumVolume = {
+  value: number;
+  unit: "routes" | "targets" | "snaps";
+  isDefault: boolean;
+};
+
+const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr"]);
+const TARGET_RATE_METRICS = new Set(["catch_pct", "adot"]);
+const SNAP_RATE_METRICS = new Set(["snap_pct"]);
+
+function defaultMinimumVolume(sort: string, week: number | null): Omit<LeaderboardMinimumVolume, "isDefault"> | null {
+  if (ROUTE_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "routes" };
+  if (TARGET_RATE_METRICS.has(sort)) return { value: week == null ? 10 : 2, unit: "targets" };
+  if (SNAP_RATE_METRICS.has(sort)) return { value: week == null ? 100 : 10, unit: "snaps" };
+  return null;
+}
+
+function volumeFor(row: StatsPlayerRow, unit: LeaderboardMinimumVolume["unit"]): number {
+  if (unit === "routes") return row.routesRun ?? 0;
+  if (unit === "targets") return row.box.targets ?? 0;
+  return row.offenseSnaps ?? 0;
+}
+
 export type StatsPlayerRow = {
   rank: number;
   playerKey: string;
@@ -384,12 +407,15 @@ export async function queryLeaderboard(args: {
   team?: string | null;
   limit?: number;
   scoring?: ScoringPreset;
+  /** Overrides the metric's default minimum routes, targets, or snaps. Zero disables it. */
+  minVolume?: number | null;
 }): Promise<{
   players: StatsPlayerRow[];
   total: number;
   scoring: ScoringPreset;
   replacementPoints: number;
   replacementPerGame: number;
+  minimumVolume: LeaderboardMinimumVolume | null;
 }> {
   const position = args.position.toUpperCase();
   const sort = (args.sort ?? "fpts").toLowerCase();
@@ -400,6 +426,17 @@ export async function queryLeaderboard(args: {
   const limit = Math.min(400, Math.max(1, args.limit ?? defaultLimit));
   const q = args.q?.trim() ?? "";
   const team = args.team ? normalizeNflTeam(args.team) : null;
+  const defaultMinimum = defaultMinimumVolume(sort, args.week);
+  const suppliedMinimum =
+    args.minVolume != null && Number.isFinite(args.minVolume) ? Math.min(1_000, Math.max(0, Math.floor(args.minVolume))) : null;
+  const minimumVolume =
+    defaultMinimum == null
+      ? null
+      : {
+          ...defaultMinimum,
+          value: suppliedMinimum ?? defaultMinimum.value,
+          isDefault: suppliedMinimum == null,
+        };
 
   const rows = await prisma.nflPlayerWeekStat.findMany({
     where: {
@@ -503,8 +540,12 @@ export async function queryLeaderboard(args: {
     }
   }
 
+  const eligible =
+    minimumVolume != null && minimumVolume.value > 0
+      ? scored.filter((row) => volumeFor(row, minimumVolume.unit) >= minimumVolume.value)
+      : scored;
   const dirMul = sortDir === "asc" ? 1 : -1;
-  scored.sort((a, b) => {
+  eligible.sort((a, b) => {
     const av = sortValue(a, sort);
     const bv = sortValue(b, sort);
     if (typeof av === "string" || typeof bv === "string") {
@@ -516,13 +557,14 @@ export async function queryLeaderboard(args: {
     return (an - bn) * dirMul;
   });
 
-  const page = scored.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
+  const page = eligible.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
   return {
     players: page,
-    total: scored.length,
+    total: eligible.length,
     scoring: preset,
     replacementPoints: Math.round(replacementSummary.fpts * 10) / 10,
     replacementPerGame: Math.round(replacementSummary.fptsPerGame * 10) / 10,
+    minimumVolume,
   };
 }
 

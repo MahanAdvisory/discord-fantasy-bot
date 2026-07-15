@@ -95,6 +95,13 @@ export const statsLeadersCommand = new SlashCommandBuilder()
   )
   .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week; omit for full season"))
+  .addIntegerOption((o) =>
+    o
+      .setName("min_volume")
+      .setDescription("Override minimum routes, targets, or snaps (0 disables)")
+      .setMinValue(0)
+      .setMaxValue(1000),
+  )
   .addStringOption((o) => o.setName("team").setDescription("Optional NFL team code (e.g. KC, SF, BUF)"))
   .addIntegerOption((o) =>
     o.setName("limit").setDescription("How many rows (default 10, max 25)").setMinValue(3).setMaxValue(25),
@@ -231,6 +238,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
   const weekRaw = interaction.options.getInteger("week");
   const week = weekRaw != null && weekRaw > 0 ? weekRaw : null;
   const limit = interaction.options.getInteger("limit") ?? 10;
+  const minVolume = interaction.options.getInteger("min_volume");
   const teamRaw = interaction.options.getString("team");
   const team = teamRaw ? normalizeNflTeam(teamRaw) : null;
   const visibility = interaction.options.getString("visibility");
@@ -258,6 +266,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     limit,
     scoring,
     team,
+    minVolume,
   });
   const embed = buildLeadersEmbed({
     players: board.players,
@@ -267,6 +276,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     metric,
     scoring,
     team,
+    minimumVolume: board.minimumVolume,
   });
   await interaction.editReply({ embeds: [embed] });
 }
