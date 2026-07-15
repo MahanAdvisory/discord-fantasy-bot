@@ -39,8 +39,28 @@ def _int(v: Any) -> int | None:
 def _str(v: Any) -> str | None:
     if v is None:
         return None
+    try:
+        if hasattr(v, "item"):
+            v = v.item()
+    except Exception:
+        pass
     s = str(v).strip()
-    return s or None
+    if not s:
+        return None
+    low = s.lower()
+    if low in {"nan", "none", "null", "<na>", "nat", "undefined"}:
+        return None
+    return s
+
+
+def _valid_gsis(v: Any) -> str | None:
+    s = _str(v)
+    if not s:
+        return None
+    # nflverse GSIS ids look like 00-003xxx; reject garbage
+    if s.lower() == "nan" or len(s) < 5:
+        return None
+    return s
 
 
 def connect():
@@ -91,7 +111,7 @@ def sync_crosswalk(conn) -> None:
     players = nfl.load_players()
     pdf = players.to_pandas() if hasattr(players, "to_pandas") else players
     for _, r in pdf.iterrows():
-        gsis = _str(r.get("gsis_id"))
+        gsis = _valid_gsis(r.get("gsis_id"))
         espn = _str(r.get("espn_id"))
         if not gsis:
             continue
@@ -109,7 +129,7 @@ def sync_crosswalk(conn) -> None:
         fpdf = ffids.to_pandas() if hasattr(ffids, "to_pandas") else ffids
         for _, r in fpdf.iterrows():
             sleeper = _str(r.get("sleeper_id"))
-            gsis = _str(r.get("gsis_id"))
+            gsis = _valid_gsis(r.get("gsis_id"))
             if sleeper and gsis:
                 gsis_by_espn[sleeper] = {
                     "gsis_id": gsis,
@@ -124,6 +144,7 @@ def sync_crosswalk(conn) -> None:
         print(f"warn: load_ff_playerids failed: {e}", file=sys.stderr)
 
     rows: list[dict[str, Any]] = []
+    seen_gsis: set[str] = set()
     with conn.cursor() as cur:
         cur.execute("SELECT player_id, data FROM sleeper_players")
         for player_id, data in cur.fetchall():
@@ -133,11 +154,16 @@ def sync_crosswalk(conn) -> None:
             meta = {}
             if espn and espn in gsis_by_espn:
                 meta = gsis_by_espn[espn]
-                gsis = meta.get("gsis_id")
+                gsis = _valid_gsis(meta.get("gsis_id"))
             # also match from ffids keyed by sleeper
             if player_id in gsis_by_espn and gsis_by_espn[player_id].get("sleeper_player_id"):
                 meta = gsis_by_espn[player_id]
-                gsis = meta.get("gsis_id")
+                gsis = _valid_gsis(meta.get("gsis_id"))
+            # gsis_id is unique — skip if another sleeper row already claimed it
+            if gsis and gsis in seen_gsis:
+                gsis = None
+            if gsis:
+                seen_gsis.add(gsis)
             full = (
                 _str(d.get("full_name"))
                 or " ".join(x for x in [_str(d.get("first_name")), _str(d.get("last_name"))] if x)
@@ -159,26 +185,32 @@ def sync_crosswalk(conn) -> None:
     # Also insert ffids rows where we have sleeper_id but no catalog row yet
     for key, meta in gsis_by_espn.items():
         sid = meta.get("sleeper_player_id")
-        if sid and not any(r["sleeper_player_id"] == sid for r in rows):
-            rows.append(
-                {
-                    "sleeper_player_id": sid,
-                    "gsis_id": meta.get("gsis_id"),
-                    "espn_id": meta.get("espn_id"),
-                    "pfr_id": meta.get("pfr_id"),
-                    "full_name": meta.get("full_name"),
-                    "position": meta.get("position"),
-                    "team": meta.get("team"),
-                    "updated_at": now,
-                }
-            )
+        gsis = _valid_gsis(meta.get("gsis_id"))
+        if not sid or any(r["sleeper_player_id"] == sid for r in rows):
+            continue
+        if gsis and gsis in seen_gsis:
+            gsis = None
+        if gsis:
+            seen_gsis.add(gsis)
+        rows.append(
+            {
+                "sleeper_player_id": sid,
+                "gsis_id": gsis,
+                "espn_id": meta.get("espn_id"),
+                "pfr_id": meta.get("pfr_id"),
+                "full_name": meta.get("full_name"),
+                "position": meta.get("position"),
+                "team": meta.get("team"),
+                "updated_at": now,
+            }
+        )
 
     n = upsert_crosswalk(conn, rows)
     print(f"crosswalk upserted {n} rows")
 
 
 def row_from_player_stats(r: dict[str, Any], gsis_map: dict[str, str], grain: str) -> dict[str, Any]:
-    gsis = _str(r.get("player_id") or r.get("gsis_id"))
+    gsis = _valid_gsis(r.get("player_id") or r.get("gsis_id"))
     week = _int(r.get("week"))
     if grain == "season":
         week = -1
