@@ -41,8 +41,10 @@ const SORT_FIELDS = new Set([
   "routes",
   "route_pct",
   "snap_pct",
+  "snaps",
   "catch_pct",
   "adot",
+  "air_yds",
   "yac",
   "racr",
   "wopr",
@@ -77,6 +79,10 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return typeof row.routePct === "number" ? row.routePct : -Infinity;
     case "snap_pct":
       return typeof row.offenseSnapPct === "number" ? row.offenseSnapPct : -Infinity;
+    case "snaps":
+      return typeof row.offenseSnaps === "number" ? row.offenseSnaps : -Infinity;
+    case "air_yds":
+      return typeof row.airYards === "number" ? row.airYards : -Infinity;
     case "catch_pct":
       return typeof row.catchRate === "number" ? row.catchRate : -Infinity;
     case "start_pct":
@@ -178,11 +184,13 @@ export async function GET(req: Request) {
     targetsPerRoute: number | null;
     yprr: number | null;
     offenseSnapPct: number | null;
+    offenseSnaps: number | null;
     routesRun: number | null;
     routePct: number | null;
     catchRate: number | null;
     catchRateExp: number | null;
     adot: number | null;
+    airYards: number | null;
     yac: number | null;
     racr: number | null;
     wopr: number | null;
@@ -237,11 +245,13 @@ export async function GET(req: Request) {
       targetsPerRoute: r.targetsPerRoute,
       yprr,
       offenseSnapPct: r.offenseSnapPct,
+      offenseSnaps: offenseSnaps ?? null,
       routesRun,
       routePct,
       catchRate,
       catchRateExp,
       adot,
+      airYards: r.receivingAirYards ?? null,
       yac: r.receivingYac,
       racr: r.racr,
       wopr: r.wopr,

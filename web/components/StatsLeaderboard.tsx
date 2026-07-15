@@ -17,11 +17,13 @@ type LeaderboardPlayer = {
   targetsPerRoute: number | null;
   yprr: number | null;
   offenseSnapPct: number | null;
+  offenseSnaps: number | null;
   routesRun: number | null;
   routePct: number | null;
   catchRate: number | null;
   catchRateExp: number | null;
   adot: number | null;
+  airYards: number | null;
   yac: number | null;
   racr: number | null;
   wopr: number | null;
@@ -84,9 +86,11 @@ type SortKey =
   | "yprr"
   | "routes"
   | "route_pct"
+  | "snaps"
   | "snap_pct"
   | "catch_pct"
   | "adot"
+  | "air_yds"
   | "yac"
   | "racr"
   | "wopr"
@@ -115,9 +119,11 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "YPRR", meaning: "Yards per route run (receiving yards ÷ routes)" },
   { abbr: "Routes", meaning: "Routes run (FTN / nflverse participation)" },
   { abbr: "Route%", meaning: "Route share (routes run ÷ offensive snaps)" },
+  { abbr: "Snaps", meaning: "Offensive snaps played" },
   { abbr: "Snap%", meaning: "Offensive snap share" },
   { abbr: "Catch%", meaning: "Catch rate (receptions ÷ targets)" },
   { abbr: "aDOT", meaning: "Average depth of target (air yards ÷ targets)" },
+  { abbr: "Air Yds", meaning: "Receiving air yards" },
   { abbr: "YAC", meaning: "Yards after catch" },
   { abbr: "RACR", meaning: "Receiver air conversion ratio" },
   { abbr: "WOPR", meaning: "Weighted opportunity rating" },
@@ -424,9 +430,11 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                   <SortTh id="yprr">YPRR</SortTh>
                   <SortTh id="routes">Routes</SortTh>
                   <SortTh id="route_pct">Route%</SortTh>
+                  <SortTh id="snaps">Snaps</SortTh>
                   <SortTh id="snap_pct">Snap%</SortTh>
                   <SortTh id="catch_pct">Catch%</SortTh>
                   <SortTh id="adot">aDOT</SortTh>
+                  <SortTh id="air_yds">Air Yds</SortTh>
                   <SortTh id="yac">YAC</SortTh>
                   <SortTh id="racr">RACR</SortTh>
                   <SortTh id="wopr">WOPR</SortTh>
@@ -478,11 +486,13 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <td className="px-3 py-2">{num(p.yprr, 2)}</td>
                     <td className="px-3 py-2">{p.routesRun ?? "—"}</td>
                     <td className="px-3 py-2">{pct(p.routePct)}</td>
+                    <td className="px-3 py-2">{p.offenseSnaps ?? "—"}</td>
                     <td className="px-3 py-2">{pct(p.offenseSnapPct)}</td>
                     <td className="px-3 py-2" title={p.catchRateExp != null ? `exp ${pct(p.catchRateExp)}` : undefined}>
                       {pct(p.catchRate)}
                     </td>
                     <td className="px-3 py-2">{num(p.adot, 1)}</td>
+                    <td className="px-3 py-2">{p.airYards ?? "—"}</td>
                     <td className="px-3 py-2">{p.yac ?? "—"}</td>
                     <td className="px-3 py-2">{num(p.racr, 2)}</td>
                     <td className="px-3 py-2">{num(p.wopr, 2)}</td>
