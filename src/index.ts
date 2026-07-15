@@ -104,7 +104,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 console.log("[startup] Registering slash commands…");
-await registerSlashCommands();
+try {
+  await registerSlashCommands();
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[startup] Slash command registration failed: ${message}`);
+  process.exit(1);
+}
 console.log("[startup] Connecting to database…");
 await prisma.$connect();
 console.log("[startup] Logging in to Discord…");

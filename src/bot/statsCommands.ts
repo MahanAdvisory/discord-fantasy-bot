@@ -139,8 +139,8 @@ export const playerCompareCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName("player_2").setDescription("Second player").setRequired(true).setAutocomplete(true),
   )
-  .addStringOption((o) => o.setName("player_3").setDescription("Optional third player").setAutocomplete(true))
   .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addStringOption((o) => o.setName("player_3").setDescription("Optional third player").setAutocomplete(true))
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week number; omit for full season"))
   .addStringOption((o) =>
     o
