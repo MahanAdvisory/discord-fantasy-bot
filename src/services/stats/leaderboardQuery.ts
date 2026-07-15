@@ -27,6 +27,56 @@ export const POS_START_COUNT: Record<string, number> = {
 const SKILL_POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 const FLEX_POSITIONS = ["RB", "WR", "TE"] as const;
 
+const NFL_TEAM_ALIASES: Record<string, string> = {
+  ARI: "ARI",
+  ATL: "ATL",
+  BAL: "BAL",
+  BUF: "BUF",
+  CAR: "CAR",
+  CHI: "CHI",
+  CIN: "CIN",
+  CLE: "CLE",
+  DAL: "DAL",
+  DEN: "DEN",
+  DET: "DET",
+  GB: "GB",
+  HOU: "HOU",
+  IND: "IND",
+  JAX: "JAX",
+  JAC: "JAX",
+  KC: "KC",
+  KCC: "KC",
+  LV: "LV",
+  LVR: "LV",
+  OAK: "LV",
+  LAC: "LAC",
+  SD: "LAC",
+  LAR: "LA",
+  LA: "LA",
+  STL: "LA",
+  MIA: "MIA",
+  MIN: "MIN",
+  NE: "NE",
+  NWE: "NE",
+  NO: "NO",
+  NYG: "NYG",
+  NYJ: "NYJ",
+  PHI: "PHI",
+  PIT: "PIT",
+  SEA: "SEA",
+  SF: "SF",
+  SFO: "SF",
+  TB: "TB",
+  TAM: "TB",
+  TEN: "TEN",
+  WAS: "WAS",
+  WSH: "WAS",
+};
+
+export function normalizeNflTeam(value: string): string | null {
+  return NFL_TEAM_ALIASES[value.trim().toUpperCase()] ?? null;
+}
+
 export type LeaderboardSortKey =
   | "fpts"
   | "fpts_g"
@@ -331,6 +381,7 @@ export async function queryLeaderboard(args: {
   sort?: string;
   dir?: "asc" | "desc";
   q?: string;
+  team?: string | null;
   limit?: number;
   scoring?: ScoringPreset;
 }): Promise<{
@@ -348,6 +399,7 @@ export async function queryLeaderboard(args: {
   const defaultLimit = position === "SUPERFLEX" || position === "FLEX" ? 200 : 100;
   const limit = Math.min(400, Math.max(1, args.limit ?? defaultLimit));
   const q = args.q?.trim() ?? "";
+  const team = args.team ? normalizeNflTeam(args.team) : null;
 
   const rows = await prisma.nflPlayerWeekStat.findMany({
     where: {
@@ -356,6 +408,7 @@ export async function queryLeaderboard(args: {
       ...(args.week == null ? { week: -1 } : { week: args.week }),
       ...positionFilter(position),
       seasonType: { in: ["REG", "reg", "REG+POST"] },
+      ...(team ? { team } : {}),
       ...(q
         ? {
             OR: [

@@ -7,11 +7,13 @@ import {
 import {
   autocompletePlayerNames,
   findPlayerStats,
+  normalizeNflTeam,
   queryLeaderboard,
   scoringFromOptions,
 } from "../services/stats/leaderboardQuery.js";
 import {
   LEADER_METRICS,
+  buildPlayerCompareEmbed,
   buildLeadersEmbed,
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
@@ -19,7 +21,7 @@ import {
 import { log } from "../logging.js";
 
 function replyFlags(visibility: string | null): { flags?: MessageFlags.Ephemeral } {
-  const wantPrivate = (visibility ?? "private").toLowerCase() === "private";
+  const wantPrivate = (visibility ?? "channel").toLowerCase() === "private";
   if (wantPrivate) return { flags: MessageFlags.Ephemeral };
   return {};
 }
@@ -63,7 +65,7 @@ export const playerStatsCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o
       .setName("visibility")
-      .setDescription("Where to post the reply")
+      .setDescription("Where to post the reply (defaults to this channel)")
       .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
   );
 
@@ -93,6 +95,7 @@ export const statsLeadersCommand = new SlashCommandBuilder()
   )
   .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week; omit for full season"))
+  .addStringOption((o) => o.setName("team").setDescription("Optional NFL team code (e.g. KC, SF, BUF)"))
   .addIntegerOption((o) =>
     o.setName("limit").setDescription("How many rows (default 10, max 25)").setMinValue(3).setMaxValue(25),
   )
@@ -116,13 +119,60 @@ export const statsLeadersCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o
       .setName("visibility")
-      .setDescription("Where to post the reply")
+      .setDescription("Where to post the reply (defaults to this channel)")
+      .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
+  );
+
+export const playerCompareCommand = new SlashCommandBuilder()
+  .setName("player-compare")
+  .setDescription("Compare two or three nflverse players side-by-side")
+  .addStringOption((o) =>
+    o.setName("player_1").setDescription("First player").setRequired(true).setAutocomplete(true),
+  )
+  .addStringOption((o) =>
+    o.setName("player_2").setDescription("Second player").setRequired(true).setAutocomplete(true),
+  )
+  .addStringOption((o) => o.setName("player_3").setDescription("Optional third player").setAutocomplete(true))
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addIntegerOption((o) => o.setName("week").setDescription("Optional week number; omit for full season"))
+  .addStringOption((o) =>
+    o
+      .setName("scope")
+      .setDescription("Which stat package to compare")
+      .addChoices(
+        { name: "Summary", value: "summary" },
+        { name: "Receiving", value: "receiving" },
+        { name: "Rushing", value: "rushing" },
+        { name: "Passing", value: "passing" },
+      ),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("scoring")
+      .setDescription("Reception scoring")
+      .addChoices(
+        { name: "PPR", value: "ppr" },
+        { name: "Half PPR", value: "half_ppr" },
+        { name: "Standard", value: "standard" },
+      ),
+  )
+  .addIntegerOption((o) =>
+    o
+      .setName("pass_td")
+      .setDescription("Passing TD points")
+      .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
+  )
+  .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
+  .addStringOption((o) =>
+    o
+      .setName("visibility")
+      .setDescription("Where to post the reply (defaults to this channel)")
       .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
   );
 
 export async function handlePlayerStatsAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  if (focused.name !== "player") {
+  if (!["player", "player_1", "player_2", "player_3"].includes(focused.name)) {
     await interaction.respond([]);
     return;
   }
@@ -181,6 +231,8 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
   const weekRaw = interaction.options.getInteger("week");
   const week = weekRaw != null && weekRaw > 0 ? weekRaw : null;
   const limit = interaction.options.getInteger("limit") ?? 10;
+  const teamRaw = interaction.options.getString("team");
+  const team = teamRaw ? normalizeNflTeam(teamRaw) : null;
   const visibility = interaction.options.getString("visibility");
   const scoring = scoringFromOptions({
     scoring: interaction.options.getString("scoring"),
@@ -188,6 +240,13 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     tePremium: interaction.options.getBoolean("te_premium"),
   });
   const flags = replyFlags(visibility);
+  if (teamRaw && !team) {
+    await interaction.reply({
+      content: `Unknown NFL team \`${teamRaw}\`. Use a team code such as \`KC\`, \`SF\`, or \`BUF\`.`,
+      ...flags,
+    });
+    return;
+  }
   await interaction.deferReply(flags);
 
   const board = await queryLeaderboard({
@@ -198,6 +257,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     dir: "desc",
     limit,
     scoring,
+    team,
   });
   const embed = buildLeadersEmbed({
     players: board.players,
@@ -205,6 +265,43 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     week,
     position,
     metric,
+    scoring,
+    team,
+  });
+  await interaction.editReply({ embeds: [embed] });
+}
+
+export async function handlePlayerCompareCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const playerQueries = [
+    interaction.options.getString("player_1", true),
+    interaction.options.getString("player_2", true),
+    interaction.options.getString("player_3"),
+  ].filter((player): player is string => Boolean(player?.trim()));
+  const season = interaction.options.getInteger("season", true);
+  const weekRaw = interaction.options.getInteger("week");
+  const week = weekRaw != null && weekRaw > 0 ? weekRaw : null;
+  const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
+  const flags = replyFlags(interaction.options.getString("visibility"));
+  const scoring = scoringFromOptions({
+    scoring: interaction.options.getString("scoring"),
+    passTd: interaction.options.getInteger("pass_td"),
+    tePremium: interaction.options.getBoolean("te_premium"),
+  });
+  await interaction.deferReply(flags);
+
+  const found = await Promise.all(playerQueries.map((playerQuery) => findPlayerStats({ playerQuery, season, week, scoring })));
+  const missing = playerQueries.filter((player, i) => !found[i]);
+  if (missing.length) {
+    await interaction.editReply({
+      content: `No stats found for **${missing.join(", ")}** in ${season}${week != null ? ` week ${week}` : ""}.`,
+    });
+    return;
+  }
+  const embed = buildPlayerCompareEmbed({
+    players: found.map((result) => result!.player),
+    season,
+    week,
+    scope,
     scoring,
   });
   await interaction.editReply({ embeds: [embed] });

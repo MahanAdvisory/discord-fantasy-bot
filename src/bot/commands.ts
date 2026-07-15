@@ -43,7 +43,7 @@ import {
   resolveLineupLeagueIdsForUser,
   runLineupCheckAcrossLeagues,
 } from "../services/lineupCheck.js";
-import { playerStatsCommand, statsLeadersCommand } from "./statsCommands.js";
+import { playerCompareCommand, playerStatsCommand, statsLeadersCommand } from "./statsCommands.js";
 
 /**
  * Discord now expects `contexts` + `integration_types` on slash commands. Without them, newer apps
@@ -203,6 +203,7 @@ const slashCommandBuilders = [
     ),
   playerStatsCommand,
   statsLeadersCommand,
+  playerCompareCommand,
 ];
 
 export const commands = slashCommandBuilders.map((b) =>
@@ -302,7 +303,8 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     commandName !== "draft-status" &&
     commandName !== "poll-now" &&
     commandName !== "player-stats" &&
-    commandName !== "stats-leaders"
+    commandName !== "stats-leaders" &&
+    commandName !== "player-compare"
   ) {
     await interaction.reply({ content: "Use this command in a server.", ...slashEphemeral(interaction) });
     return;
@@ -471,6 +473,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/subscribe-espn` / `/unsubscribe-espn` — manage ESPN routes",
       "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
       "• `/player-stats` — receiving / rushing / passing / summary (channel or private)",
+      "• `/player-compare` — compare two or three players side-by-side",
       "• `/stats-leaders` — top-N by FPTS, FPOE, VORP, Tgt%, …",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
@@ -666,6 +669,12 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   if (commandName === "stats-leaders") {
     const { handleStatsLeadersCommand } = await import("./statsCommands.js");
     await handleStatsLeadersCommand(interaction);
+    return;
+  }
+
+  if (commandName === "player-compare") {
+    const { handlePlayerCompareCommand } = await import("./statsCommands.js");
+    await handlePlayerCompareCommand(interaction);
     return;
   }
 
