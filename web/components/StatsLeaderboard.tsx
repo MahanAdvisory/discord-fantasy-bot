@@ -111,7 +111,7 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "Rush EPA", meaning: "Rushing expected points added" },
   { abbr: "Rec EPA", meaning: "Receiving expected points added" },
   { abbr: "Tgt%", meaning: "Target share (share of team targets)" },
-  { abbr: "TPRR", meaning: "Targets per route run" },
+  { abbr: "TPRR", meaning: "Targets per route run (targets ÷ routes, shown as %)" },
   { abbr: "YPRR", meaning: "Yards per route run (receiving yards ÷ routes)" },
   { abbr: "Routes", meaning: "Routes run (FTN / nflverse participation)" },
   { abbr: "Route%", meaning: "Route share (routes run ÷ offensive snaps)" },
@@ -474,11 +474,11 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <td className="px-3 py-2">{num(p.receivingEpa, 2)}</td>
                     {showRec && <td className="px-3 py-2">{p.box.targets ?? 0}</td>}
                     <td className="px-3 py-2">{pct(p.targetShare)}</td>
-                    <td className="px-3 py-2">{num(p.targetsPerRoute, 2)}</td>
+                    <td className="px-3 py-2">{pct(p.targetsPerRoute)}</td>
                     <td className="px-3 py-2">{num(p.yprr, 2)}</td>
                     <td className="px-3 py-2">{p.routesRun ?? "—"}</td>
                     <td className="px-3 py-2">{pct(p.routePct)}</td>
-                    <td className="px-3 py-2">{p.offenseSnapPct != null ? `${num(p.offenseSnapPct, 0)}%` : "—"}</td>
+                    <td className="px-3 py-2">{pct(p.offenseSnapPct)}</td>
                     <td className="px-3 py-2" title={p.catchRateExp != null ? `exp ${pct(p.catchRateExp)}` : undefined}>
                       {pct(p.catchRate)}
                     </td>
