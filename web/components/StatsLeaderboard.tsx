@@ -112,7 +112,7 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "FPTS/G", meaning: "Fantasy points per game" },
   { abbr: "xFP", meaning: "Expected fantasy points (ffopportunity components, rescaled to your scoring)" },
   { abbr: "FPOE", meaning: "Fantasy points over expected (FPTS − xFP)" },
-  { abbr: "VORP", meaning: "Value over replacement (player FPTS − replacement FPTS/G × games played)" },
+  { abbr: "VORP", meaning: "Value over replacement: Σ (week FPTS − that week's replacement FPTS) over games played" },
   { abbr: "Rush EPA", meaning: "Rushing expected points added" },
   { abbr: "Rec EPA", meaning: "Receiving expected points added" },
   { abbr: "Tgt%", meaning: "Target share (share of team targets)" },

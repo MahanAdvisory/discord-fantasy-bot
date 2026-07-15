@@ -68,17 +68,15 @@ export function replacementFloorIndex(startCount: number, teams = 12): number {
 }
 
 export type ReplacementLevel = {
-  /** Season (or period) FPTS for the replacement-level player. */
+  /** FPTS for the replacement-level player over the same period as `games`. */
   fpts: number;
-  /** Games that FPTS spans (for prorating VORP to a player's active weeks). */
   games: number;
   fptsPerGame: number;
 };
 
 /**
  * Pick a replacement FPTS level from start-rate pool below the starter cutoff.
- * Callers should prorate with `fptsPerGame * playerGames` so injured / inactive weeks
- * don't charge a full-season replacement cost.
+ * For a single week, pass games=1 so `fpts` is that week's replacement score.
  */
 export function pickReplacementLevel(
   sortedDesc: Array<{ sleeperPlayerId: string | null; fpts: number; games: number; startRate: number }>,
@@ -104,7 +102,6 @@ export function pickReplacementLevel(
   return { fpts, games, fptsPerGame: fpts / games };
 }
 
-/** @deprecated prefer pickReplacementLevel */
 export function pickReplacementPoints(
   sortedDesc: Array<{ sleeperPlayerId: string | null; fpts: number; startRate: number }>,
   opts: { startCount: number; teams?: number; minRate?: number; maxRate?: number },
@@ -115,10 +112,35 @@ export function pickReplacementPoints(
   ).fpts;
 }
 
-/** VORP = player FPTS − (replacement FPTS/G × player active games). */
-export function vorpOverActiveGames(playerFpts: number, playerGames: number, replacement: ReplacementLevel): number {
-  const g = Math.max(0, playerGames);
-  return playerFpts - replacement.fptsPerGame * g;
+/**
+ * Season VORP from weekly scores: sum over active weeks of (player FPTS − that week's
+ * replacement FPTS). Inactive / bye weeks for the player are omitted, and bye-week
+ * replacement levels naturally run lower.
+ */
+export function vorpFromWeeklyScores(
+  playerWeeklyFpts: Array<{ week: number; fpts: number }>,
+  replacementByWeek: Map<number, number>,
+): number {
+  let total = 0;
+  for (const w of playerWeeklyFpts) {
+    const rep = replacementByWeek.get(w.week);
+    if (rep == null) continue;
+    total += w.fpts - rep;
+  }
+  return total;
+}
+
+/** Build per-week replacement FPTS from already-scored weekly player rows. */
+export function buildWeeklyReplacementMap(
+  weeks: Map<number, Array<{ sleeperPlayerId: string | null; fpts: number; startRate: number }>>,
+  opts: { startCount: number; teams?: number },
+): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const [week, rows] of weeks) {
+    const sorted = [...rows].sort((a, b) => b.fpts - a.fpts);
+    out.set(week, pickReplacementPoints(sorted, opts));
+  }
+  return out;
 }
 
 export async function snapshotMemberLeagueStarters(args: {

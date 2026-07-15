@@ -1,7 +1,13 @@
 import { requireSessionUser } from "@/lib/sessionUser";
 import { prisma } from "@fantasy/db";
 import { parseScoringQuery, scoreBox, scoreExpected } from "@fantasy/domain/fantasyScoring";
-import { computeStartRates, pickReplacementLevel, vorpOverActiveGames } from "@fantasy/services/stats/vorp";
+import {
+  buildWeeklyReplacementMap,
+  computeStartRates,
+  pickReplacementLevel,
+  pickReplacementPoints,
+  vorpFromWeeklyScores,
+} from "@fantasy/services/stats/vorp";
 import type { Prisma } from "@prisma/client";
 
 const POS_START_COUNT: Record<string, number> = {
@@ -279,10 +285,18 @@ export async function GET(req: Request) {
     };
   });
 
-  // Rank / VORP always relative to FPTS order within the filtered set
+  // Rank by FPTS first; VORP uses per-week replacement for weeks the player was active.
   scored.sort((a, b) => b.fpts - a.fpts);
   const startCount = POS_START_COUNT[position] ?? 2;
-  const replacement = pickReplacementLevel(
+
+  // Season-level start rates / roster% for filtering replacement pool each week
+  const seasonStartByKey = new Map<string, number>();
+  for (const r of scored) {
+    if (r.startRate != null) seasonStartByKey.set(r.playerKey, r.startRate);
+    if (r.sleeperPlayerId && r.startRate != null) seasonStartByKey.set(r.sleeperPlayerId, r.startRate);
+  }
+
+  let replacementSummary = pickReplacementLevel(
     scored.map((r) => ({
       sleeperPlayerId: r.sleeperPlayerId,
       fpts: r.fpts,
@@ -291,8 +305,67 @@ export async function GET(req: Request) {
     })),
     { startCount },
   );
-  for (const r of scored) {
-    r.vorp = Math.round(vorpOverActiveGames(r.fpts, r.games, replacement) * 10) / 10;
+
+  if (grain === "week") {
+    const replacement = pickReplacementPoints(
+      scored.map((r) => ({
+        sleeperPlayerId: r.sleeperPlayerId,
+        fpts: r.fpts,
+        startRate: r.startRate ?? 0,
+      })),
+      { startCount },
+    );
+    replacementSummary = { fpts: replacement, games: 1, fptsPerGame: replacement };
+    for (const r of scored) {
+      r.vorp = Math.round((r.fpts - replacement) * 10) / 10;
+    }
+  } else {
+    const weeklyRows = await prisma.nflPlayerWeekStat.findMany({
+      where: {
+        season,
+        grain: "week",
+        week: { gt: 0 },
+        ...positionFilter(position),
+        seasonType: { in: ["REG", "reg", "REG+POST"] },
+      },
+      take: 8000,
+    });
+
+    const byWeek = new Map<number, Array<{ sleeperPlayerId: string | null; fpts: number; startRate: number; playerKey: string }>>();
+    const playerWeeks = new Map<string, Array<{ week: number; fpts: number }>>();
+
+    for (const wr of weeklyRows) {
+      const fpts = scoreBox(wr, preset);
+      const startRate =
+        (wr.sleeperPlayerId ? seasonStartByKey.get(wr.sleeperPlayerId) : undefined) ??
+        seasonStartByKey.get(wr.playerKey) ??
+        (wr.fantasyProsRosterPct != null ? Math.min(1, Math.max(0, wr.fantasyProsRosterPct / 100)) : 0);
+      const bucket = byWeek.get(wr.week) ?? [];
+      bucket.push({ sleeperPlayerId: wr.sleeperPlayerId, fpts, startRate, playerKey: wr.playerKey });
+      byWeek.set(wr.week, bucket);
+
+      const pw = playerWeeks.get(wr.playerKey) ?? [];
+      pw.push({ week: wr.week, fpts });
+      playerWeeks.set(wr.playerKey, pw);
+    }
+
+    const replacementByWeek = buildWeeklyReplacementMap(byWeek, { startCount });
+    let repSum = 0;
+    let repWeeks = 0;
+    for (const v of replacementByWeek.values()) {
+      repSum += v;
+      repWeeks += 1;
+    }
+    replacementSummary = {
+      fpts: repWeeks > 0 ? repSum : replacementSummary.fpts,
+      games: Math.max(1, repWeeks),
+      fptsPerGame: repWeeks > 0 ? repSum / repWeeks : replacementSummary.fptsPerGame,
+    };
+
+    for (const r of scored) {
+      const weeks = playerWeeks.get(r.playerKey) ?? [];
+      r.vorp = Math.round(vorpFromWeeklyScores(weeks, replacementByWeek) * 10) / 10;
+    }
   }
 
   const dirMul = sortDir === "asc" ? 1 : -1;
@@ -319,8 +392,8 @@ export async function GET(req: Request) {
       dir: sortDir,
       q: q || null,
       scoring: preset,
-      replacementPoints: Math.round(replacement.fpts * 10) / 10,
-      replacementPerGame: Math.round(replacement.fptsPerGame * 10) / 10,
+      replacementPoints: Math.round(replacementSummary.fpts * 10) / 10,
+      replacementPerGame: Math.round(replacementSummary.fptsPerGame * 10) / 10,
       attribution:
         "Box scores via nflverse/nflfastR. Expected points via ffopportunity. Participation/routes via FTN Data via nflverse (CC-BY-SA) when present. Roster % fallback via FantasyPros rankings when member start-rate sample is thin.",
       players: page,
