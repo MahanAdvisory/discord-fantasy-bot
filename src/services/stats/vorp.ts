@@ -67,19 +67,58 @@ export function replacementFloorIndex(startCount: number, teams = 12): number {
   return Math.max(0, startCount * teams - 1);
 }
 
+export type ReplacementLevel = {
+  /** Season (or period) FPTS for the replacement-level player. */
+  fpts: number;
+  /** Games that FPTS spans (for prorating VORP to a player's active weeks). */
+  games: number;
+  fptsPerGame: number;
+};
+
+/**
+ * Pick a replacement FPTS level from start-rate pool below the starter cutoff.
+ * Callers should prorate with `fptsPerGame * playerGames` so injured / inactive weeks
+ * don't charge a full-season replacement cost.
+ */
+export function pickReplacementLevel(
+  sortedDesc: Array<{ sleeperPlayerId: string | null; fpts: number; games: number; startRate: number }>,
+  opts: { startCount: number; teams?: number; minRate?: number; maxRate?: number },
+): ReplacementLevel {
+  const minRate = opts.minRate ?? 0.3;
+  const maxRate = opts.maxRate ?? 0.8;
+  const floorIdx = replacementFloorIndex(opts.startCount, opts.teams ?? 12);
+  const floor = sortedDesc[floorIdx] ?? sortedDesc[sortedDesc.length - 1];
+  const floorPts = floor?.fpts ?? 0;
+  const pool = sortedDesc.filter((p) => p.startRate > minRate && p.startRate < maxRate && p.fpts < floorPts);
+  const pick =
+    pool.length > 0
+      ? pool.reduce((best, p) => (p.fpts > best.fpts ? p : best))
+      : sortedDesc[floorIdx + 1] ?? {
+          sleeperPlayerId: null,
+          fpts: floorPts * 0.85,
+          games: floor?.games ?? 1,
+          startRate: 0,
+        };
+  const games = Math.max(1, pick.games || floor?.games || 1);
+  const fpts = pick.fpts;
+  return { fpts, games, fptsPerGame: fpts / games };
+}
+
+/** @deprecated prefer pickReplacementLevel */
 export function pickReplacementPoints(
   sortedDesc: Array<{ sleeperPlayerId: string | null; fpts: number; startRate: number }>,
   opts: { startCount: number; teams?: number; minRate?: number; maxRate?: number },
 ): number {
-  const minRate = opts.minRate ?? 0.3;
-  const maxRate = opts.maxRate ?? 0.8;
-  const floorIdx = replacementFloorIndex(opts.startCount, opts.teams ?? 12);
-  const floorPts = sortedDesc[floorIdx]?.fpts ?? sortedDesc[sortedDesc.length - 1]?.fpts ?? 0;
-  const pool = sortedDesc.filter((p) => p.startRate > minRate && p.startRate < maxRate && p.fpts < floorPts);
-  if (!pool.length) {
-    return sortedDesc[floorIdx + 1]?.fpts ?? floorPts * 0.85;
-  }
-  return Math.max(...pool.map((p) => p.fpts));
+  return pickReplacementLevel(
+    sortedDesc.map((p) => ({ ...p, games: 1 })),
+    opts,
+  ).fpts;
+}
+
+/** VORP = player FPTS − (replacement FPTS/G × player active games). */
+export function vorpOverActiveGames(playerFpts: number, playerGames: number, replacement: ReplacementLevel): number {
+  const g = Math.max(0, playerGames);
+  return playerFpts - replacement.fptsPerGame * g;
 }
 
 export async function snapshotMemberLeagueStarters(args: {

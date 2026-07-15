@@ -1,7 +1,7 @@
 import { requireSessionUser } from "@/lib/sessionUser";
 import { prisma } from "@fantasy/db";
 import { parseScoringQuery, scoreBox, scoreExpected } from "@fantasy/domain/fantasyScoring";
-import { computeStartRates, pickReplacementPoints } from "@fantasy/services/stats/vorp";
+import { computeStartRates, pickReplacementLevel, vorpOverActiveGames } from "@fantasy/services/stats/vorp";
 import type { Prisma } from "@prisma/client";
 
 const POS_START_COUNT: Record<string, number> = {
@@ -282,16 +282,17 @@ export async function GET(req: Request) {
   // Rank / VORP always relative to FPTS order within the filtered set
   scored.sort((a, b) => b.fpts - a.fpts);
   const startCount = POS_START_COUNT[position] ?? 2;
-  const replacement = pickReplacementPoints(
+  const replacement = pickReplacementLevel(
     scored.map((r) => ({
       sleeperPlayerId: r.sleeperPlayerId,
       fpts: r.fpts,
+      games: Math.max(1, r.games || 1),
       startRate: r.startRate ?? 0,
     })),
     { startCount },
   );
   for (const r of scored) {
-    r.vorp = Math.round((r.fpts - replacement) * 10) / 10;
+    r.vorp = Math.round(vorpOverActiveGames(r.fpts, r.games, replacement) * 10) / 10;
   }
 
   const dirMul = sortDir === "asc" ? 1 : -1;
@@ -318,7 +319,8 @@ export async function GET(req: Request) {
       dir: sortDir,
       q: q || null,
       scoring: preset,
-      replacementPoints: Math.round(replacement * 10) / 10,
+      replacementPoints: Math.round(replacement.fpts * 10) / 10,
+      replacementPerGame: Math.round(replacement.fptsPerGame * 10) / 10,
       attribution:
         "Box scores via nflverse/nflfastR. Expected points via ffopportunity. Participation/routes via FTN Data via nflverse (CC-BY-SA) when present. Roster % fallback via FantasyPros rankings when member start-rate sample is thin.",
       players: page,

@@ -58,6 +58,7 @@ type LeaderboardResponse = {
   q: string | null;
   scoring: { receptions: string; passTd: number; tePremium: number };
   replacementPoints: number;
+  replacementPerGame?: number;
   attribution: string;
   players: LeaderboardPlayer[];
   total: number;
@@ -111,7 +112,7 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "FPTS/G", meaning: "Fantasy points per game" },
   { abbr: "xFP", meaning: "Expected fantasy points (ffopportunity components, rescaled to your scoring)" },
   { abbr: "FPOE", meaning: "Fantasy points over expected (FPTS − xFP)" },
-  { abbr: "VORP", meaning: "Value over replacement player (using start-rate / roster-% pool)" },
+  { abbr: "VORP", meaning: "Value over replacement (player FPTS − replacement FPTS/G × games played)" },
   { abbr: "Rush EPA", meaning: "Rushing expected points added" },
   { abbr: "Rec EPA", meaning: "Receiving expected points added" },
   { abbr: "Tgt%", meaning: "Target share (share of team targets)" },
@@ -373,7 +374,9 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
             {playerSearch.trim()
               ? `${data.players.length} match${data.players.length === 1 ? "" : "es"}`
               : `${data.total} players`}
-            {" · "}replacement ≈ {data.replacementPoints} FPTS · season {data.season}
+            {" · "}replacement ≈ {data.replacementPoints} FPTS
+            {data.replacementPerGame != null ? ` (${data.replacementPerGame}/G)` : ""}
+            {" · "}season {data.season}
             {data.week === "season" ? " (full season)" : ` week ${data.week}`}
             {" · "}click a column header to sort
           </p>
