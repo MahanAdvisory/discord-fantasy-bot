@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from "react";
 
 type LeaderboardPlayer = {
   rank: number;
@@ -156,6 +156,11 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const syncingScroll = useRef<"top" | "bottom" | null>(null);
 
   const showPos = position === "FLEX" || position === "SUPERFLEX";
   const showPass = position === "QB" || position === "SUPERFLEX";
@@ -166,6 +171,42 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
     const t = window.setTimeout(() => setDebouncedSearch(playerSearch.trim()), 300);
     return () => window.clearTimeout(t);
   }, [playerSearch]);
+
+  useEffect(() => {
+    const table = tableRef.current;
+    const bottom = bottomScrollRef.current;
+    if (!table || !bottom) return;
+
+    const updateWidth = () => setTableScrollWidth(table.scrollWidth);
+    updateWidth();
+
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateWidth) : null;
+    ro?.observe(table);
+    ro?.observe(bottom);
+    window.addEventListener("resize", updateWidth);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, [data]);
+
+  const onTopScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (syncingScroll.current === "bottom") return;
+    const bottom = bottomScrollRef.current;
+    if (!bottom) return;
+    syncingScroll.current = "top";
+    bottom.scrollLeft = e.currentTarget.scrollLeft;
+    syncingScroll.current = null;
+  };
+
+  const onBottomScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (syncingScroll.current === "top") return;
+    const top = topScrollRef.current;
+    if (!top) return;
+    syncingScroll.current = "bottom";
+    top.scrollLeft = e.currentTarget.scrollLeft;
+    syncingScroll.current = null;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -321,8 +362,17 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
             {data.week === "season" ? " (full season)" : ` week ${data.week}`}
             {" · "}click a column header to sort
           </p>
-          <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <table className="min-w-max border-separate border-spacing-0 text-sm">
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800">
+            <div
+              ref={topScrollRef}
+              onScroll={onTopScroll}
+              className="overflow-x-auto overflow-y-hidden"
+              aria-hidden="true"
+            >
+              <div style={{ height: 1, width: tableScrollWidth || undefined }} />
+            </div>
+            <div ref={bottomScrollRef} onScroll={onBottomScroll} className="overflow-x-auto">
+            <table ref={tableRef} className="min-w-max border-separate border-spacing-0 text-sm">
               <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-900/80">
                 <tr>
                   <th className="sticky left-0 z-20 bg-zinc-50 px-3 py-2 dark:bg-zinc-900">#</th>
@@ -437,6 +487,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 p-4 text-sm dark:border-zinc-800">

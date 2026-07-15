@@ -449,8 +449,28 @@ def sync_snap_counts(conn, seasons: list[int]) -> None:
         print(f"  snap updates attempted={n}")
 
 
+def _week_from_game_id(game_id: Any) -> int | None:
+    """Parse week from nflverse game ids like '2024_01_TEN_CHI'."""
+    s = _str(game_id)
+    if not s:
+        return None
+    parts = s.split("_")
+    if len(parts) < 2:
+        return None
+    return _int(parts[1])
+
+
+_SKILL_ROUTE_POS = {"WR", "TE", "RB", "FB"}
+
+
 def sync_routes_tprr(conn, seasons: list[int]) -> None:
-    """Aggregate routes from participation and compute TPRR."""
+    """Aggregate route proxies from FTN participation and compute TPRR.
+
+    Participation is play-level: `route` is charted when a pass concept has a
+    primary receiver route. Week comes from `nflverse_game_id`. We count each
+    WR/TE/RB/FB on the field on plays with a non-empty route as one route run
+    (standard free-data proxy; not PFF charted routes).
+    """
     import nflreadpy as nfl
 
     for season in seasons:
@@ -463,34 +483,45 @@ def sync_routes_tprr(conn, seasons: list[int]) -> None:
             print(f"warn: participation failed: {e}", file=sys.stderr)
             continue
         pdf = part.to_pandas() if hasattr(part, "to_pandas") else part
-        # Count routes per player-week from offense_players + route column when present
-        routes: dict[tuple[str, int], int] = {}
-        if "offense_players" not in pdf.columns:
-            print("  no offense_players column; skip routes")
+        if "offense_players" not in pdf.columns or "route" not in pdf.columns:
+            print("  missing offense_players/route columns; skip routes")
             continue
-        # Prefer explicit player route rows if present
-        if "gsis_id" in pdf.columns and "route" in pdf.columns:
+
+        routes: dict[tuple[str, int], int] = {}
+        # Prefer vectorized path when week can be derived
+        if "week" not in pdf.columns and "nflverse_game_id" in pdf.columns:
+            pdf = pdf.copy()
+            pdf["week"] = pdf["nflverse_game_id"].map(_week_from_game_id)
+
+        if "gsis_id" in pdf.columns:
+            # Rare: player-grain participation export
             for _, r in pdf.iterrows():
                 if not _str(r.get("route")):
                     continue
-                gsis = _str(r.get("gsis_id"))
+                gsis = _valid_gsis(r.get("gsis_id"))
                 week = _int(r.get("week"))
                 if not gsis or week is None:
                     continue
                 routes[(gsis, week)] = routes.get((gsis, week), 0) + 1
         else:
-            # Fallback: count skill players on plays with a route charted
             for _, r in pdf.iterrows():
+                if not _str(r.get("route")):
+                    continue
                 week = _int(r.get("week"))
                 if week is None:
                     continue
-                route = _str(r.get("route"))
-                players = _str(r.get("offense_players")) or ""
-                if not route or not players:
-                    continue
-                for gsis in players.replace(";", ",").split(","):
-                    gsis = gsis.strip()
+                players = (_str(r.get("offense_players")) or "").split(";")
+                positions = (_str(r.get("offense_positions")) or "").split(";")
+                for i, gsis_raw in enumerate(players):
+                    gsis = _valid_gsis(gsis_raw)
                     if not gsis:
+                        continue
+                    pos = (positions[i].strip().upper() if i < len(positions) else "")
+                    if pos and pos not in _SKILL_ROUTE_POS:
+                        continue
+                    if not pos:
+                        # If positions missing, still count offense_players on route plays
+                        # for skill-less exports (rare).
                         continue
                     routes[(gsis, week)] = routes.get((gsis, week), 0) + 1
 
@@ -626,10 +657,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="nflverse → Postgres ETL")
     parser.add_argument("--seasons", nargs="+", type=int, default=None)
     parser.add_argument("--skip-crosswalk", action="store_true")
+    parser.add_argument("--skip-player-stats", action="store_true")
     parser.add_argument("--skip-opportunity", action="store_true")
     parser.add_argument("--skip-snaps", action="store_true")
     parser.add_argument("--skip-routes", action="store_true")
     parser.add_argument("--skip-rankings", action="store_true")
+    parser.add_argument("--skip-rollup", action="store_true")
     args = parser.parse_args()
 
     import nflreadpy as nfl
@@ -653,7 +686,8 @@ def main() -> None:
     try:
         if not args.skip_crosswalk:
             sync_crosswalk(conn)
-        sync_player_stats(conn, seasons)
+        if not args.skip_player_stats:
+            sync_player_stats(conn, seasons)
         if not args.skip_opportunity:
             sync_ff_opportunity(conn, seasons)
         if not args.skip_snaps:
@@ -662,7 +696,8 @@ def main() -> None:
             sync_routes_tprr(conn, seasons)
         if not args.skip_rankings:
             sync_fantasypros_roster_pct(conn, seasons)
-        rollup_season_opportunity_and_usage(conn, seasons)
+        if not args.skip_rollup:
+            rollup_season_opportunity_and_usage(conn, seasons)
         print("etl complete", seasons)
     finally:
         conn.close()
