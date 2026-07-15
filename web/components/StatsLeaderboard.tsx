@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 type LeaderboardPlayer = {
   rank: number;
+  playerKey?: string;
   playerName: string | null;
   team: string | null;
   position: string | null;
@@ -47,6 +48,8 @@ type LeaderboardResponse = {
   season: number;
   week: number | "season";
   position: string;
+  sort: string;
+  dir: string;
   q: string | null;
   scoring: { receptions: string; passTd: number; tePremium: number };
   replacementPoints: number;
@@ -54,6 +57,65 @@ type LeaderboardResponse = {
   players: LeaderboardPlayer[];
   total: number;
 };
+
+type SortKey =
+  | "fpts"
+  | "fpts_g"
+  | "xfp"
+  | "fpoe"
+  | "vorp"
+  | "g"
+  | "tgt"
+  | "rec"
+  | "rec_yds"
+  | "rec_td"
+  | "att"
+  | "rush_yds"
+  | "rush_td"
+  | "pass_yds"
+  | "pass_td"
+  | "int"
+  | "cmp"
+  | "tgt_pct"
+  | "tprr"
+  | "routes"
+  | "snap_pct"
+  | "catch_pct"
+  | "adot"
+  | "yac"
+  | "racr"
+  | "wopr"
+  | "rush_epa"
+  | "start_pct"
+  | "pos"
+  | "player"
+  | "team";
+
+const LEGEND: Array<{ abbr: string; meaning: string }> = [
+  { abbr: "G", meaning: "Games played" },
+  { abbr: "ATT", meaning: "Rushing attempts (carries)" },
+  { abbr: "TGT", meaning: "Targets" },
+  { abbr: "REC", meaning: "Receptions" },
+  { abbr: "CMP/ATT", meaning: "Completions / pass attempts" },
+  { abbr: "FPTS", meaning: "Fantasy points under the selected scoring settings" },
+  { abbr: "FPTS/G", meaning: "Fantasy points per game" },
+  { abbr: "xFP", meaning: "Expected fantasy points (ffopportunity components, rescaled to your scoring)" },
+  { abbr: "FPOE", meaning: "Fantasy points over expected (FPTS − xFP)" },
+  { abbr: "Tgt%", meaning: "Target share (share of team targets)" },
+  { abbr: "TPRR", meaning: "Targets per route run" },
+  { abbr: "Routes", meaning: "Routes run (FTN / nflverse participation)" },
+  { abbr: "Snap%", meaning: "Offensive snap share" },
+  { abbr: "Catch%", meaning: "Catch rate (receptions ÷ targets)" },
+  { abbr: "aDOT", meaning: "Average depth of target (air yards ÷ targets)" },
+  { abbr: "YAC", meaning: "Yards after catch" },
+  { abbr: "RACR", meaning: "Receiver air conversion ratio" },
+  { abbr: "WOPR", meaning: "Weighted opportunity rating" },
+  { abbr: "Rush EPA", meaning: "Rushing expected points added" },
+  { abbr: "VORP", meaning: "Value over replacement player (using start-rate / roster-% pool)" },
+  { abbr: "Start%", meaning: "Member-league start rate, or FantasyPros roster % fallback" },
+  { abbr: "FLEX", meaning: "RB + WR + TE combined leaderboard" },
+  { abbr: "Superflex", meaning: "QB + RB + WR + TE combined leaderboard" },
+];
 
 function pct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -65,19 +127,40 @@ function num(v: number | null | undefined, digits = 1): string {
   return v.toFixed(digits);
 }
 
+function latestAvailableSeason(defaultSeason: string): number {
+  const n = Number(defaultSeason);
+  // NFL slate for calendar year Y isn't available early in Y; 2026 has no data yet.
+  if (!Number.isFinite(n)) return 2025;
+  return Math.min(n, 2025);
+}
+
+function seasonOptions(defaultSeason: string): string[] {
+  const end = latestAvailableSeason(defaultSeason);
+  const out: string[] = [];
+  for (let y = end; y >= 2015; y--) out.push(String(y));
+  return out;
+}
+
 export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason: string; defaultWeek: number }) {
-  const [season, setSeason] = useState(defaultSeason);
+  const seasons = useMemo(() => seasonOptions(defaultSeason), [defaultSeason]);
+  const [season, setSeason] = useState(() => seasons[0] ?? "2025");
   const [week, setWeek] = useState<string>("season");
   const [position, setPosition] = useState("RB");
   const [scoring, setScoring] = useState("ppr");
   const [passTd, setPassTd] = useState("4");
   const [tePremium, setTePremium] = useState(false);
-  const [sort, setSort] = useState("fpts");
+  const [sort, setSort] = useState<SortKey>("fpts");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [playerSearch, setPlayerSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const showPos = position === "FLEX" || position === "SUPERFLEX";
+  const showPass = position === "QB" || position === "SUPERFLEX";
+  const showRush = position === "RB" || position === "FLEX" || position === "SUPERFLEX";
+  const showRec = position === "RB" || position === "WR" || position === "TE" || position === "FLEX" || position === "SUPERFLEX";
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(playerSearch.trim()), 300);
@@ -95,7 +178,8 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
       passTd,
       tePremium: tePremium ? "1" : "0",
       sort,
-      limit: debouncedSearch ? "200" : "100",
+      dir: sortDir,
+      limit: position === "SUPERFLEX" || position === "FLEX" || debouncedSearch ? "300" : "150",
     });
     if (debouncedSearch) params.set("q", debouncedSearch);
     try {
@@ -111,24 +195,49 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
     } finally {
       setLoading(false);
     }
-  }, [season, week, position, scoring, passTd, tePremium, sort, debouncedSearch]);
+  }, [season, week, position, scoring, passTd, tePremium, sort, sortDir, debouncedSearch]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const seasons = [String(Number(defaultSeason)), String(Number(defaultSeason) - 1), String(Number(defaultSeason) - 2)];
+  const onSort = (key: SortKey) => {
+    if (sort === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else {
+      setSort(key);
+      setSortDir(key === "player" || key === "team" || key === "pos" ? "asc" : "desc");
+    }
+  };
 
-  const visiblePlayers = useMemo(() => {
-    if (!data?.players) return [];
-    const needle = playerSearch.trim().toLowerCase();
-    if (!needle) return data.players;
-    return data.players.filter((p) => {
-      const name = (p.playerName ?? "").toLowerCase();
-      const team = (p.team ?? "").toLowerCase();
-      return name.includes(needle) || team.includes(needle);
-    });
-  }, [data, playerSearch]);
+  const sortMark = (key: SortKey) => {
+    if (sort !== key) return "";
+    return sortDir === "asc" ? " ↑" : " ↓";
+  };
+
+  const SortTh = ({
+    id,
+    children,
+    className = "",
+    sticky,
+  }: {
+    id: SortKey;
+    children: ReactNode;
+    className?: string;
+    sticky?: boolean;
+  }) => (
+    <th
+      className={[
+        "px-3 py-2 whitespace-nowrap",
+        sticky ? "sticky left-10 z-20 bg-zinc-50 dark:bg-zinc-900 shadow-[2px_0_0_0_rgba(0,0,0,0.06)] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.06)]" : "",
+        className,
+      ].join(" ")}
+    >
+      <button type="button" onClick={() => onSort(id)} className="inline-flex items-center gap-0.5 font-medium uppercase tracking-wide hover:text-zinc-900 dark:hover:text-zinc-100">
+        {children}
+        <span className="text-[10px] text-zinc-400">{sortMark(id)}</span>
+      </button>
+    </th>
+  );
 
   return (
     <section className="space-y-4">
@@ -162,9 +271,12 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
         <label className="text-xs">
           <span className="mb-1 block text-zinc-500">Position</span>
           <select value={position} onChange={(e) => setPosition(e.target.value)} className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-            {["QB", "RB", "WR", "TE"].map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
+            <option value="QB">QB</option>
+            <option value="RB">RB</option>
+            <option value="WR">WR</option>
+            <option value="TE">TE</option>
+            <option value="FLEX">FLEX (RB/WR/TE)</option>
+            <option value="SUPERFLEX">Superflex (all)</option>
           </select>
         </label>
         <label className="text-xs">
@@ -186,16 +298,6 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
           <input type="checkbox" checked={tePremium} onChange={(e) => setTePremium(e.target.checked)} />
           TE premium (+0.5)
         </label>
-        <label className="text-xs">
-          <span className="mb-1 block text-zinc-500">Sort</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <option value="fpts">FPTS</option>
-            <option value="fpts_g">FPTS/G</option>
-            <option value="xfp">xFP</option>
-            <option value="fpoe">FPOE</option>
-            <option value="vorp">VORP</option>
-          </select>
-        </label>
         <button type="button" onClick={() => void load()} className="rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
           {loading ? "Loading…" : "Refresh"}
         </button>
@@ -213,64 +315,73 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
         <>
           <p className="text-xs text-zinc-500">
             {playerSearch.trim()
-              ? `${visiblePlayers.length} match${visiblePlayers.length === 1 ? "" : "es"}`
+              ? `${data.players.length} match${data.players.length === 1 ? "" : "es"}`
               : `${data.total} players`}
             {" · "}replacement ≈ {data.replacementPoints} FPTS · season {data.season}
             {data.week === "season" ? " (full season)" : ` week ${data.week}`}
+            {" · "}click a column header to sort
           </p>
           <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <table className="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-              <thead className="bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900/50">
+            <table className="min-w-max border-separate border-spacing-0 text-sm">
+              <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-900/80">
                 <tr>
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">Player</th>
-                  <th className="px-3 py-2">G</th>
-                  {position === "QB" && (
+                  <th className="sticky left-0 z-20 bg-zinc-50 px-3 py-2 dark:bg-zinc-900">#</th>
+                  <SortTh id="player" sticky>Player</SortTh>
+                  {showPos && <SortTh id="pos">Pos</SortTh>}
+                  <SortTh id="team">Team</SortTh>
+                  <SortTh id="g">G</SortTh>
+                  {showPass && (
                     <>
-                      <th className="px-3 py-2">CMP/ATT</th>
-                      <th className="px-3 py-2">Pass Yds</th>
-                      <th className="px-3 py-2">Pass TD</th>
-                      <th className="px-3 py-2">INT</th>
+                      <SortTh id="cmp">CMP</SortTh>
+                      <SortTh id="pass_yds">Pass Yds</SortTh>
+                      <SortTh id="pass_td">Pass TD</SortTh>
+                      <SortTh id="int">INT</SortTh>
                     </>
                   )}
-                  {(position === "RB" || position === "WR" || position === "TE") && (
+                  {showRush && (
                     <>
-                      {position === "RB" && (
-                        <>
-                          <th className="px-3 py-2">ATT</th>
-                          <th className="px-3 py-2">Rush Yds</th>
-                          <th className="px-3 py-2">Rush TD</th>
-                        </>
-                      )}
-                      <th className="px-3 py-2">TGT</th>
-                      <th className="px-3 py-2">REC</th>
-                      <th className="px-3 py-2">Rec Yds</th>
-                      <th className="px-3 py-2">Rec TD</th>
+                      <SortTh id="att">ATT</SortTh>
+                      <SortTh id="rush_yds">Rush Yds</SortTh>
+                      <SortTh id="rush_td">Rush TD</SortTh>
                     </>
                   )}
-                  <th className="px-3 py-2">FPTS</th>
-                  <th className="px-3 py-2">FPTS/G</th>
-                  <th className="px-3 py-2">xFP</th>
-                  <th className="px-3 py-2">FPOE</th>
-                  <th className="px-3 py-2">Tgt%</th>
-                  <th className="px-3 py-2">TPRR</th>
-                  <th className="px-3 py-2">Snap%</th>
-                  <th className="px-3 py-2">Catch%</th>
-                  <th className="px-3 py-2">aDOT</th>
-                  <th className="px-3 py-2">VORP</th>
-                  <th className="px-3 py-2">Start%</th>
+                  {showRec && (
+                    <>
+                      <SortTh id="tgt">TGT</SortTh>
+                      <SortTh id="rec">REC</SortTh>
+                      <SortTh id="rec_yds">Rec Yds</SortTh>
+                      <SortTh id="rec_td">Rec TD</SortTh>
+                    </>
+                  )}
+                  <SortTh id="fpts">FPTS</SortTh>
+                  <SortTh id="fpts_g">FPTS/G</SortTh>
+                  <SortTh id="xfp">xFP</SortTh>
+                  <SortTh id="fpoe">FPOE</SortTh>
+                  <SortTh id="tgt_pct">Tgt%</SortTh>
+                  <SortTh id="tprr">TPRR</SortTh>
+                  <SortTh id="routes">Routes</SortTh>
+                  <SortTh id="snap_pct">Snap%</SortTh>
+                  <SortTh id="catch_pct">Catch%</SortTh>
+                  <SortTh id="adot">aDOT</SortTh>
+                  <SortTh id="yac">YAC</SortTh>
+                  <SortTh id="racr">RACR</SortTh>
+                  <SortTh id="wopr">WOPR</SortTh>
+                  <SortTh id="rush_epa">Rush EPA</SortTh>
+                  <SortTh id="vorp">VORP</SortTh>
+                  <SortTh id="start_pct">Start%</SortTh>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {visiblePlayers.map((p) => (
-                  <tr key={`${p.rank}-${p.playerName}`} className="bg-white dark:bg-zinc-950">
-                    <td className="px-3 py-2 text-zinc-500">{p.rank}</td>
-                    <td className="px-3 py-2 font-medium">
+              <tbody>
+                {data.players.map((p) => (
+                  <tr key={`${p.rank}-${p.playerKey ?? p.playerName}`} className="group">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-2 text-zinc-500 group-hover:bg-zinc-50 dark:bg-zinc-950 dark:group-hover:bg-zinc-900">{p.rank}</td>
+                    <td className="sticky left-10 z-10 bg-white px-3 py-2 font-medium shadow-[2px_0_0_0_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:bg-zinc-950 dark:shadow-[2px_0_0_0_rgba(255,255,255,0.06)] dark:group-hover:bg-zinc-900">
                       {p.playerName ?? "—"}
-                      <span className="ml-1 text-xs font-normal text-zinc-500">{p.team}</span>
                     </td>
+                    {showPos && <td className="px-3 py-2 text-zinc-500">{p.position}</td>}
+                    <td className="px-3 py-2 text-zinc-500">{p.team ?? "—"}</td>
                     <td className="px-3 py-2">{p.games}</td>
-                    {position === "QB" && (
+                    {showPass && (
                       <>
                         <td className="px-3 py-2">{p.box.completions ?? 0}/{p.box.attempts ?? 0}</td>
                         <td className="px-3 py-2">{p.box.passingYards ?? 0}</td>
@@ -278,15 +389,15 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                         <td className="px-3 py-2">{p.box.interceptions ?? 0}</td>
                       </>
                     )}
-                    {(position === "RB" || position === "WR" || position === "TE") && (
+                    {showRush && (
                       <>
-                        {position === "RB" && (
-                          <>
-                            <td className="px-3 py-2">{p.box.carries ?? 0}</td>
-                            <td className="px-3 py-2">{p.box.rushingYards ?? 0}</td>
-                            <td className="px-3 py-2">{p.box.rushingTds ?? 0}</td>
-                          </>
-                        )}
+                        <td className="px-3 py-2">{p.box.carries ?? 0}</td>
+                        <td className="px-3 py-2">{p.box.rushingYards ?? 0}</td>
+                        <td className="px-3 py-2">{p.box.rushingTds ?? 0}</td>
+                      </>
+                    )}
+                    {showRec && (
+                      <>
                         <td className="px-3 py-2">{p.box.targets ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receptions ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receivingYards ?? 0}</td>
@@ -299,30 +410,47 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <td className="px-3 py-2">{num(p.fpoe)}</td>
                     <td className="px-3 py-2">{pct(p.targetShare)}</td>
                     <td className="px-3 py-2">{num(p.targetsPerRoute, 2)}</td>
+                    <td className="px-3 py-2">{p.routesRun ?? "—"}</td>
                     <td className="px-3 py-2">{p.offenseSnapPct != null ? `${num(p.offenseSnapPct, 0)}%` : "—"}</td>
                     <td className="px-3 py-2" title={p.catchRateExp != null ? `exp ${pct(p.catchRateExp)}` : undefined}>
                       {pct(p.catchRate)}
                     </td>
                     <td className="px-3 py-2">{num(p.adot, 1)}</td>
+                    <td className="px-3 py-2">{p.yac ?? "—"}</td>
+                    <td className="px-3 py-2">{num(p.racr, 2)}</td>
+                    <td className="px-3 py-2">{num(p.wopr, 2)}</td>
+                    <td className="px-3 py-2">{num(p.rushingEpa, 2)}</td>
                     <td className="px-3 py-2">{num(p.vorp)}</td>
                     <td className="px-3 py-2" title={p.startRateSource ?? undefined}>
                       {p.startRate != null ? pct(p.startRate) : p.rosterPct != null ? `${num(p.rosterPct, 0)}%` : "—"}
                     </td>
                   </tr>
                 ))}
-                {!visiblePlayers.length && (
+                {!data.players.length && (
                   <tr>
-                    <td colSpan={20} className="px-3 py-8 text-center text-zinc-500">
+                    <td colSpan={28} className="px-3 py-8 text-center text-zinc-500">
                       {playerSearch.trim()
                         ? `No players match “${playerSearch.trim()}”.`
-                        : <>No stats loaded yet. Run <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">python etl/sync_nflverse.py</code>.</>}
+                        : <>No stats loaded yet for this season. Run <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">python etl/sync_nflverse.py</code>.</>}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-zinc-500">{data.attribution}</p>
+
+          <div className="rounded-2xl border border-zinc-200 p-4 text-sm dark:border-zinc-800">
+            <h3 className="mb-2 text-sm font-semibold">Column legend</h3>
+            <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              {LEGEND.map((item) => (
+                <div key={item.abbr} className="flex gap-2">
+                  <dt className="w-20 shrink-0 font-medium text-zinc-700 dark:text-zinc-200">{item.abbr}</dt>
+                  <dd className="text-zinc-500">{item.meaning}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-xs text-zinc-500">{data.attribution}</p>
+          </div>
         </>
       )}
     </section>

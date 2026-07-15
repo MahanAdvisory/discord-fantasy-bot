@@ -637,12 +637,17 @@ def main() -> None:
     if args.seasons:
         seasons = args.seasons
     else:
-        current = int(nfl.get_current_season()) if hasattr(nfl, "get_current_season") else datetime.now().year
+        # Prefer latest completed/in-progress NFL season; avoid empty future calendar years.
+        year = datetime.now().year
         try:
-            current = int(nfl.most_recent_season())
+            if hasattr(nfl, "most_recent_season"):
+                year = int(nfl.most_recent_season())
+            elif hasattr(nfl, "get_current_season"):
+                year = int(nfl.get_current_season())
         except Exception:
-            pass
-        seasons = [current - 1, current]
+            year = min(year, 2025)
+        # Nightly: current + prior two seasons (full history via --seasons 2015 …)
+        seasons = sorted({year - 2, year - 1, year})
 
     conn = connect()
     try:
