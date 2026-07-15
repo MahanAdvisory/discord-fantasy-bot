@@ -15,8 +15,10 @@ type LeaderboardPlayer = {
   fpoe: number | null;
   targetShare: number | null;
   targetsPerRoute: number | null;
+  yprr: number | null;
   offenseSnapPct: number | null;
   routesRun: number | null;
+  routePct: number | null;
   catchRate: number | null;
   catchRateExp: number | null;
   adot: number | null;
@@ -24,6 +26,7 @@ type LeaderboardPlayer = {
   racr: number | null;
   wopr: number | null;
   rushingEpa: number | null;
+  receivingEpa: number | null;
   startRate: number | null;
   startRateSource: string | null;
   rosterPct: number | null;
@@ -78,7 +81,9 @@ type SortKey =
   | "cmp"
   | "tgt_pct"
   | "tprr"
+  | "yprr"
   | "routes"
+  | "route_pct"
   | "snap_pct"
   | "catch_pct"
   | "adot"
@@ -86,6 +91,7 @@ type SortKey =
   | "racr"
   | "wopr"
   | "rush_epa"
+  | "rec_epa"
   | "start_pct"
   | "pos"
   | "player"
@@ -101,17 +107,20 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "FPTS/G", meaning: "Fantasy points per game" },
   { abbr: "xFP", meaning: "Expected fantasy points (ffopportunity components, rescaled to your scoring)" },
   { abbr: "FPOE", meaning: "Fantasy points over expected (FPTS − xFP)" },
+  { abbr: "VORP", meaning: "Value over replacement player (using start-rate / roster-% pool)" },
+  { abbr: "Rush EPA", meaning: "Rushing expected points added" },
+  { abbr: "Rec EPA", meaning: "Receiving expected points added" },
   { abbr: "Tgt%", meaning: "Target share (share of team targets)" },
   { abbr: "TPRR", meaning: "Targets per route run" },
+  { abbr: "YPRR", meaning: "Yards per route run (receiving yards ÷ routes)" },
   { abbr: "Routes", meaning: "Routes run (FTN / nflverse participation)" },
+  { abbr: "Route%", meaning: "Route share (routes run ÷ offensive snaps)" },
   { abbr: "Snap%", meaning: "Offensive snap share" },
   { abbr: "Catch%", meaning: "Catch rate (receptions ÷ targets)" },
   { abbr: "aDOT", meaning: "Average depth of target (air yards ÷ targets)" },
   { abbr: "YAC", meaning: "Yards after catch" },
   { abbr: "RACR", meaning: "Receiver air conversion ratio" },
   { abbr: "WOPR", meaning: "Weighted opportunity rating" },
-  { abbr: "Rush EPA", meaning: "Rushing expected points added" },
-  { abbr: "VORP", meaning: "Value over replacement player (using start-rate / roster-% pool)" },
   { abbr: "Start%", meaning: "Member-league start rate, or FantasyPros roster % fallback" },
   { abbr: "FLEX", meaning: "RB + WR + TE combined leaderboard" },
   { abbr: "Superflex", meaning: "QB + RB + WR + TE combined leaderboard" },
@@ -397,7 +406,6 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                   )}
                   {showRec && (
                     <>
-                      <SortTh id="tgt">TGT</SortTh>
                       <SortTh id="rec">REC</SortTh>
                       <SortTh id="rec_yds">Rec Yds</SortTh>
                       <SortTh id="rec_td">Rec TD</SortTh>
@@ -407,17 +415,21 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                   <SortTh id="fpts_g">FPTS/G</SortTh>
                   <SortTh id="xfp">xFP</SortTh>
                   <SortTh id="fpoe">FPOE</SortTh>
+                  <SortTh id="vorp">VORP</SortTh>
+                  <SortTh id="rush_epa">Rush EPA</SortTh>
+                  <SortTh id="rec_epa">Rec EPA</SortTh>
+                  {showRec && <SortTh id="tgt">TGT</SortTh>}
                   <SortTh id="tgt_pct">Tgt%</SortTh>
                   <SortTh id="tprr">TPRR</SortTh>
+                  <SortTh id="yprr">YPRR</SortTh>
                   <SortTh id="routes">Routes</SortTh>
+                  <SortTh id="route_pct">Route%</SortTh>
                   <SortTh id="snap_pct">Snap%</SortTh>
                   <SortTh id="catch_pct">Catch%</SortTh>
                   <SortTh id="adot">aDOT</SortTh>
                   <SortTh id="yac">YAC</SortTh>
                   <SortTh id="racr">RACR</SortTh>
                   <SortTh id="wopr">WOPR</SortTh>
-                  <SortTh id="rush_epa">Rush EPA</SortTh>
-                  <SortTh id="vorp">VORP</SortTh>
                   <SortTh id="start_pct">Start%</SortTh>
                 </tr>
               </thead>
@@ -448,7 +460,6 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     )}
                     {showRec && (
                       <>
-                        <td className="px-3 py-2">{p.box.targets ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receptions ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receivingYards ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receivingTds ?? 0}</td>
@@ -458,9 +469,15 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <td className="px-3 py-2">{num(p.fptsPerGame)}</td>
                     <td className="px-3 py-2">{num(p.xfp)}</td>
                     <td className="px-3 py-2">{num(p.fpoe)}</td>
+                    <td className="px-3 py-2">{num(p.vorp)}</td>
+                    <td className="px-3 py-2">{num(p.rushingEpa, 2)}</td>
+                    <td className="px-3 py-2">{num(p.receivingEpa, 2)}</td>
+                    {showRec && <td className="px-3 py-2">{p.box.targets ?? 0}</td>}
                     <td className="px-3 py-2">{pct(p.targetShare)}</td>
                     <td className="px-3 py-2">{num(p.targetsPerRoute, 2)}</td>
+                    <td className="px-3 py-2">{num(p.yprr, 2)}</td>
                     <td className="px-3 py-2">{p.routesRun ?? "—"}</td>
+                    <td className="px-3 py-2">{pct(p.routePct)}</td>
                     <td className="px-3 py-2">{p.offenseSnapPct != null ? `${num(p.offenseSnapPct, 0)}%` : "—"}</td>
                     <td className="px-3 py-2" title={p.catchRateExp != null ? `exp ${pct(p.catchRateExp)}` : undefined}>
                       {pct(p.catchRate)}
@@ -469,8 +486,6 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <td className="px-3 py-2">{p.yac ?? "—"}</td>
                     <td className="px-3 py-2">{num(p.racr, 2)}</td>
                     <td className="px-3 py-2">{num(p.wopr, 2)}</td>
-                    <td className="px-3 py-2">{num(p.rushingEpa, 2)}</td>
-                    <td className="px-3 py-2">{num(p.vorp)}</td>
                     <td className="px-3 py-2" title={p.startRateSource ?? undefined}>
                       {p.startRate != null ? pct(p.startRate) : p.rosterPct != null ? `${num(p.rosterPct, 0)}%` : "—"}
                     </td>
@@ -478,7 +493,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                 ))}
                 {!data.players.length && (
                   <tr>
-                    <td colSpan={28} className="px-3 py-8 text-center text-zinc-500">
+                    <td colSpan={32} className="px-3 py-8 text-center text-zinc-500">
                       {playerSearch.trim()
                         ? `No players match “${playerSearch.trim()}”.`
                         : <>No stats loaded yet for this season. Run <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">python etl/sync_nflverse.py</code>.</>}

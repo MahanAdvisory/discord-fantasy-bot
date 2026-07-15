@@ -37,7 +37,9 @@ const SORT_FIELDS = new Set([
   "cmp",
   "tgt_pct",
   "tprr",
+  "yprr",
   "routes",
+  "route_pct",
   "snap_pct",
   "catch_pct",
   "adot",
@@ -45,6 +47,7 @@ const SORT_FIELDS = new Set([
   "racr",
   "wopr",
   "rush_epa",
+  "rec_epa",
   "start_pct",
   "pos",
   "player",
@@ -66,8 +69,12 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return typeof row.targetShare === "number" ? row.targetShare : -Infinity;
     case "tprr":
       return typeof row.targetsPerRoute === "number" ? row.targetsPerRoute : -Infinity;
+    case "yprr":
+      return typeof row.yprr === "number" ? row.yprr : -Infinity;
     case "routes":
       return typeof row.routesRun === "number" ? row.routesRun : -Infinity;
+    case "route_pct":
+      return typeof row.routePct === "number" ? row.routePct : -Infinity;
     case "snap_pct":
       return typeof row.offenseSnapPct === "number" ? row.offenseSnapPct : -Infinity;
     case "catch_pct":
@@ -76,6 +83,8 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return typeof row.startRate === "number" ? row.startRate : -Infinity;
     case "rush_epa":
       return typeof row.rushingEpa === "number" ? row.rushingEpa : -Infinity;
+    case "rec_epa":
+      return typeof row.receivingEpa === "number" ? row.receivingEpa : -Infinity;
     case "pos":
       return typeof row.position === "string" ? row.position : "";
     case "player":
@@ -167,8 +176,10 @@ export async function GET(req: Request) {
     fpoe: number | null;
     targetShare: number | null;
     targetsPerRoute: number | null;
+    yprr: number | null;
     offenseSnapPct: number | null;
     routesRun: number | null;
+    routePct: number | null;
     catchRate: number | null;
     catchRateExp: number | null;
     adot: number | null;
@@ -176,6 +187,7 @@ export async function GET(req: Request) {
     racr: number | null;
     wopr: number | null;
     rushingEpa: number | null;
+    receivingEpa: number | null;
     rushingYardsExp: number | null;
     startRate: number | null;
     startRateSource: string | null;
@@ -197,6 +209,17 @@ export async function GET(req: Request) {
     const catchRate = targets > 0 ? receptions / targets : null;
     const catchRateExp = r.receptionsExp != null && targets > 0 ? r.receptionsExp / targets : null;
     const adot = r.receivingAirYards != null && targets > 0 ? r.receivingAirYards / targets : null;
+    const routesRun = r.routesRun;
+    const offenseSnaps = r.offenseSnaps;
+    const receivingYards = r.receivingYards;
+    const yprr =
+      routesRun != null && routesRun > 0 && receivingYards != null
+        ? Math.round((receivingYards / routesRun) * 100) / 100
+        : null;
+    const routePct =
+      offenseSnaps != null && offenseSnaps > 0 && routesRun != null
+        ? Math.round((routesRun / offenseSnaps) * 1000) / 1000
+        : null;
     const sr = r.sleeperPlayerId ? startRates.get(r.sleeperPlayerId) : undefined;
     return {
       rank: 0,
@@ -212,8 +235,10 @@ export async function GET(req: Request) {
       fpoe: fpoe != null ? Math.round(fpoe * 10) / 10 : null,
       targetShare: r.targetShare,
       targetsPerRoute: r.targetsPerRoute,
+      yprr,
       offenseSnapPct: r.offenseSnapPct,
-      routesRun: r.routesRun,
+      routesRun,
+      routePct,
       catchRate,
       catchRateExp,
       adot,
@@ -221,6 +246,7 @@ export async function GET(req: Request) {
       racr: r.racr,
       wopr: r.wopr,
       rushingEpa: r.rushingEpa,
+      receivingEpa: r.receivingEpa ?? null,
       rushingYardsExp: r.rushingYardsExp,
       startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),
       startRateSource: sr?.source ?? (r.fantasyProsRosterPct != null ? "fantasypros_fallback" : null),

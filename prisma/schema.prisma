@@ -298,6 +298,7 @@ model NflPlayerWeekStat {
   receivingAirYards  Int? @map("receiving_air_yards")
   receivingYac       Int? @map("receiving_yac")
   receivingFumblesLost Int? @map("receiving_fumbles_lost")
+  receivingEpa       Float? @map("receiving_epa")
   targetShare        Float? @map("target_share")
   airYardsShare      Float? @map("air_yards_share")
   wopr               Float?
