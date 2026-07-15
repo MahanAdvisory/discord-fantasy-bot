@@ -10,6 +10,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
@@ -69,6 +70,11 @@ def connect():
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise SystemExit("DATABASE_URL is required")
+    # Prisma accepts `?schema=...`; libpq/psycopg does not. The ETL uses the
+    # database's default schema, which is public for this application's URLs.
+    parts = urlsplit(url)
+    query = urlencode([(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "schema"])
+    url = urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
     return psycopg.connect(url)
 
 
