@@ -14,6 +14,7 @@ Migrate bot + web workloads from local hosting to Railway with safe rollback.
 ## Service Split
 - **Web service**: Next.js app (`web` workspace), public HTTP.
 - **Bot/worker service**: Discord bot + hourly polling worker, no public ingress required.
+- **nflverse ETL cron** (optional but recommended in-season): Docker service from [`etl/railway.toml`](../etl/railway.toml) — nightly `python etl/sync_nflverse.py` with shared `DATABASE_URL`. See [`etl/README.md`](../etl/README.md).
 - **Database**: Railway Postgres or external managed Postgres.
 
 ## Deploy Order

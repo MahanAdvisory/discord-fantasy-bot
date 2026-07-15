@@ -1,0 +1,15 @@
+# Railway cron service for nightly nflverse → Postgres sync.
+# Attach the same Postgres `DATABASE_URL` as bot/web.
+# In Railway: New Service → Docker → set root Dockerfile path to etl/Dockerfile
+# (or use this config as the service railway.toml).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "etl/Dockerfile"
+
+[deploy]
+startCommand = "python /app/etl/sync_nflverse.py"
+# Nightly 08:00 UTC during / after nflverse refresh window
+cronSchedule = "0 8 * * *"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 2

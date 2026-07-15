@@ -234,3 +234,128 @@ model NotificationEventJournal {
   @@index([createdAt])
   @@map("notification_event_journal")
 }
+
+/// Maps Sleeper player_id ↔ nflverse / GSIS / ESPN ids for analytics joins.
+model PlayerIdCrosswalk {
+  sleeperPlayerId String  @id @map("sleeper_player_id")
+  gsisId          String? @unique @map("gsis_id")
+  espnId          String? @map("espn_id")
+  pfrId           String? @map("pfr_id")
+  fullName        String? @map("full_name")
+  position        String?
+  team            String?
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([gsisId])
+  @@index([espnId])
+  @@map("player_id_crosswalk")
+}
+
+/// Weekly (or season-rollup week=-1) nflverse player box + opportunity + usage stats.
+model NflPlayerWeekStat {
+  id String @id @default(cuid())
+
+  /// Prefer GSIS id from nflverse; falls back to sleeper id when known.
+  playerKey String @map("player_key")
+  gsisId    String? @map("gsis_id")
+  sleeperPlayerId String? @map("sleeper_player_id")
+
+  season     Int
+  week       Int
+  /// "REG" | "POST" | "REG+POST" rollups use week=-1
+  seasonType String @default("REG") @map("season_type")
+  /// "week" | "season"
+  grain      String @default("week")
+
+  playerName String? @map("player_name")
+  position   String?
+  team       String?
+  opponent   String?
+
+  gamesPlayed Int @default(0) @map("games_played")
+
+  // Passing
+  completions   Int?
+  attempts      Int?
+  passingYards  Int? @map("passing_yards")
+  passingTds    Int? @map("passing_tds")
+  interceptions Int?
+  passingAirYards Int? @map("passing_air_yards")
+  passingYac    Int? @map("passing_yac")
+
+  // Rushing
+  carries      Int?
+  rushingYards Int? @map("rushing_yards")
+  rushingTds   Int? @map("rushing_tds")
+  rushingFumblesLost Int? @map("rushing_fumbles_lost")
+  rushingEpa   Float? @map("rushing_epa")
+
+  // Receiving
+  targets            Int?
+  receptions         Int?
+  receivingYards     Int? @map("receiving_yards")
+  receivingTds       Int? @map("receiving_tds")
+  receivingAirYards  Int? @map("receiving_air_yards")
+  receivingYac       Int? @map("receiving_yac")
+  receivingFumblesLost Int? @map("receiving_fumbles_lost")
+  targetShare        Float? @map("target_share")
+  airYardsShare      Float? @map("air_yards_share")
+  wopr               Float?
+  racr               Float?
+
+  // nflverse precomputed (std / ppr reference)
+  fantasyPoints    Float? @map("fantasy_points")
+  fantasyPointsPpr Float? @map("fantasy_points_ppr")
+
+  // ffopportunity expected components (Phase 2)
+  receptionsExp      Float? @map("receptions_exp")
+  receivingYardsExp  Float? @map("receiving_yards_exp")
+  receivingTdsExp    Float? @map("receiving_tds_exp")
+  rushingYardsExp    Float? @map("rushing_yards_exp")
+  rushingTdsExp      Float? @map("rushing_tds_exp")
+  passingYardsExp    Float? @map("passing_yards_exp")
+  passingTdsExp      Float? @map("passing_tds_exp")
+  totalFantasyPointsExp Float? @map("total_fantasy_points_exp")
+  totalFantasyPointsDiff Float? @map("total_fantasy_points_diff")
+
+  // Usage (Phase 3)
+  offenseSnaps    Int? @map("offense_snaps")
+  offenseSnapPct  Float? @map("offense_snap_pct")
+  routesRun       Int? @map("routes_run")
+  targetsPerRoute Float? @map("targets_per_route")
+
+  // Roster % fallback (Phase 5)
+  fantasyProsRosterPct Float? @map("fantasypros_roster_pct")
+
+  raw Json?
+
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([playerKey, season, week, seasonType, grain])
+  @@index([season, week, position])
+  @@index([sleeperPlayerId])
+  @@index([gsisId])
+  @@map("nfl_player_week_stats")
+}
+
+/// Per-league weekly starter/rostered snapshot for member-universe start rate / VORP.
+model SleeperPlayerWeekStart {
+  id String @id @default(cuid())
+
+  leagueId        String @map("league_id")
+  season          String
+  week            Int
+  sleeperPlayerId String @map("sleeper_player_id")
+  rosterId        Int    @map("roster_id")
+  wasStarted      Boolean @map("was_started")
+  wasRostered     Boolean @default(true) @map("was_rostered")
+  position        String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([leagueId, season, week, sleeperPlayerId])
+  @@index([season, week, sleeperPlayerId])
+  @@index([leagueId, season, week])
+  @@map("sleeper_player_week_starts")
+}
