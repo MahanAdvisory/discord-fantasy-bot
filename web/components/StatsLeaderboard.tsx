@@ -29,6 +29,9 @@ type LeaderboardPlayer = {
   wopr: number | null;
   rushingEpa: number | null;
   receivingEpa: number | null;
+  firstDowns: number | null;
+  firstDownsPerCarry: number | null;
+  firstDownsPerRoute: number | null;
   startRate: number | null;
   startRateSource: string | null;
   rosterPct: number | null;
@@ -37,10 +40,12 @@ type LeaderboardPlayer = {
     carries?: number | null;
     rushingYards?: number | null;
     rushingTds?: number | null;
+    rushingFirstDowns?: number | null;
     targets?: number | null;
     receptions?: number | null;
     receivingYards?: number | null;
     receivingTds?: number | null;
+    receivingFirstDowns?: number | null;
     completions?: number | null;
     attempts?: number | null;
     passingYards?: number | null;
@@ -78,6 +83,11 @@ type SortKey =
   | "att"
   | "rush_yds"
   | "rush_td"
+  | "fd"
+  | "rush_fd"
+  | "rec_fd"
+  | "fd_carry"
+  | "fd_rr"
   | "pass_yds"
   | "pass_td"
   | "int"
@@ -105,8 +115,13 @@ type SortKey =
 const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "G", meaning: "Games played" },
   { abbr: "ATT", meaning: "Rushing attempts (carries)" },
+  { abbr: "1D", meaning: "Total first downs (rushing + receiving)" },
+  { abbr: "Rush 1D", meaning: "Rushing first downs" },
+  { abbr: "FD/Carry", meaning: "Rushing first downs ÷ carries" },
   { abbr: "TGT", meaning: "Targets" },
   { abbr: "REC", meaning: "Receptions" },
+  { abbr: "Rec 1D", meaning: "Receiving first downs" },
+  { abbr: "FD/RR", meaning: "Receiving first downs ÷ routes run" },
   { abbr: "CMP/ATT", meaning: "Completions / pass attempts" },
   { abbr: "FPTS", meaning: "Fantasy points under the selected scoring settings" },
   { abbr: "FPTS/G", meaning: "Fantasy points per game" },
@@ -398,6 +413,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                   {showPos && <SortTh id="pos">Pos</SortTh>}
                   <SortTh id="team">Team</SortTh>
                   <SortTh id="g">G</SortTh>
+                  <SortTh id="fd">1D</SortTh>
                   {showPass && (
                     <>
                       <SortTh id="cmp">CMP</SortTh>
@@ -411,6 +427,8 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                       <SortTh id="att">ATT</SortTh>
                       <SortTh id="rush_yds">Rush Yds</SortTh>
                       <SortTh id="rush_td">Rush TD</SortTh>
+                      <SortTh id="rush_fd">Rush 1D</SortTh>
+                      <SortTh id="fd_carry">FD/Carry</SortTh>
                     </>
                   )}
                   {showRec && (
@@ -418,6 +436,8 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                       <SortTh id="rec">REC</SortTh>
                       <SortTh id="rec_yds">Rec Yds</SortTh>
                       <SortTh id="rec_td">Rec TD</SortTh>
+                      <SortTh id="rec_fd">Rec 1D</SortTh>
+                      <SortTh id="fd_rr">FD/RR</SortTh>
                     </>
                   )}
                   <SortTh id="fpts">FPTS</SortTh>
@@ -454,6 +474,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     {showPos && <td className="px-3 py-2 text-zinc-500">{p.position}</td>}
                     <td className="px-3 py-2 text-zinc-500">{p.team ?? "—"}</td>
                     <td className="px-3 py-2">{p.games}</td>
+                    <td className="px-3 py-2">{p.firstDowns ?? "—"}</td>
                     {showPass && (
                       <>
                         <td className="px-3 py-2">{p.box.completions ?? 0}/{p.box.attempts ?? 0}</td>
@@ -467,6 +488,8 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                         <td className="px-3 py-2">{p.box.carries ?? 0}</td>
                         <td className="px-3 py-2">{p.box.rushingYards ?? 0}</td>
                         <td className="px-3 py-2">{p.box.rushingTds ?? 0}</td>
+                        <td className="px-3 py-2">{p.box.rushingFirstDowns ?? "—"}</td>
+                        <td className="px-3 py-2">{num(p.firstDownsPerCarry, 2)}</td>
                       </>
                     )}
                     {showRec && (
@@ -474,6 +497,8 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                         <td className="px-3 py-2">{p.box.receptions ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receivingYards ?? 0}</td>
                         <td className="px-3 py-2">{p.box.receivingTds ?? 0}</td>
+                        <td className="px-3 py-2">{p.box.receivingFirstDowns ?? "—"}</td>
+                        <td className="px-3 py-2">{num(p.firstDownsPerRoute, 2)}</td>
                       </>
                     )}
                     <td className="px-3 py-2 font-semibold">{num(p.fpts)}</td>

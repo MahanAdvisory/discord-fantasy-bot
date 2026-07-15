@@ -53,6 +53,7 @@ export function buildPlayerStatsEmbed(args: {
         `**REC** ${p.box.receptions ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **TGT** ${p.box.targets ?? 0}`,
         `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
         `**Tgt%** ${pct(p.targetShare)} · **TPRR** ${pct(p.targetsPerRoute)} · **YPRR** ${n(p.yprr, 2)}`,
+        `**Rec 1D** ${p.box.receivingFirstDowns ?? "—"} · **FD/RR** ${n(p.firstDownsPerRoute, 2)}`,
         `**aDOT** ${n(p.adot, 1)} · **Air Yds** ${p.airYards ?? "—"} · **YAC** ${p.yac ?? "—"}`,
         `**RACR** ${n(p.racr, 2)} · **WOPR** ${n(p.wopr, 2)} · **Rec EPA** ${n(p.receivingEpa, 2)}`,
         `**Catch%** ${pct(p.catchRate)} · **Routes** ${p.routesRun ?? "—"} · **Route%** ${pct(p.routePct)}`,
@@ -67,6 +68,7 @@ export function buildPlayerStatsEmbed(args: {
         : null;
     lines.push(
       `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **YPC** ${n(ypc, 2)}`,
+      `**Rush 1D** ${p.box.rushingFirstDowns ?? "—"} · **FD/Carry** ${n(p.firstDownsPerCarry, 2)}`,
       `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
       `**Rush EPA** ${n(p.rushingEpa, 2)} · **Snaps** ${p.offenseSnaps ?? "—"} · **Snap%** ${pct(p.offenseSnapPct)} · **G** ${p.games}`,
     );
@@ -89,12 +91,14 @@ export function buildPlayerStatsEmbed(args: {
       );
     }
     if ((p.box.carries ?? 0) > 0 || p.position === "RB") {
-      lines.push(`Rush: ${p.box.carries ?? 0} att, ${p.box.rushingYards ?? 0} yds, ${p.box.rushingTds ?? 0} TD · EPA ${n(p.rushingEpa, 2)}`);
+      lines.push(
+        `Rush: ${p.box.carries ?? 0} att, ${p.box.rushingYards ?? 0} yds, ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)} · EPA ${n(p.rushingEpa, 2)}`,
+      );
     }
     if ((p.box.targets ?? 0) > 0 || p.position === "WR" || p.position === "TE") {
       lines.push(
-        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0}, ${p.box.receivingYards ?? 0} yds, ${p.box.receivingTds ?? 0} TD`,
-        `Tgt% ${pct(p.targetShare)} · TPRR ${pct(p.targetsPerRoute)} · YPRR ${n(p.yprr, 2)} · aDOT ${n(p.adot, 1)} · Rec EPA ${n(p.receivingEpa, 2)}`,
+        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0}, ${p.box.receivingYards ?? 0} yds, ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
+        `Total 1D ${p.firstDowns ?? "—"} · Tgt% ${pct(p.targetShare)} · TPRR ${pct(p.targetsPerRoute)} · YPRR ${n(p.yprr, 2)} · aDOT ${n(p.adot, 1)} · Rec EPA ${n(p.receivingEpa, 2)}`,
       );
     }
   }
@@ -115,6 +119,11 @@ const METRIC_LABELS: Record<string, string> = {
   adot: "aDOT",
   rec_epa: "Rec EPA",
   rush_epa: "Rush EPA",
+  fd: "First Downs",
+  rush_fd: "Rush First Downs",
+  rec_fd: "Rec First Downs",
+  fd_carry: "FD/Carry",
+  fd_rr: "FD/RR",
   tgt: "Targets",
   rec: "Receptions",
   rec_yds: "Rec Yards",
@@ -149,6 +158,16 @@ function metricValue(p: StatsPlayerRow, metric: string): string {
       return n(p.receivingEpa, 2);
     case "rush_epa":
       return n(p.rushingEpa, 2);
+    case "fd":
+      return String(p.firstDowns ?? "—");
+    case "rush_fd":
+      return String(p.box.rushingFirstDowns ?? "—");
+    case "rec_fd":
+      return String(p.box.receivingFirstDowns ?? "—");
+    case "fd_carry":
+      return n(p.firstDownsPerCarry, 2);
+    case "fd_rr":
+      return n(p.firstDownsPerRoute, 2);
     case "tgt":
       return String(p.box.targets ?? 0);
     case "rec":
@@ -228,18 +247,19 @@ export function buildPlayerCompareEmbed(args: {
       );
     } else if (scope === "rushing") {
       lines.push(
-        `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **EPA** ${n(p.rushingEpa, 2)}`,
+        `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **1D** ${p.box.rushingFirstDowns ?? "—"} · **FD/Carry** ${n(p.firstDownsPerCarry, 2)} · **EPA** ${n(p.rushingEpa, 2)}`,
       );
     } else if (scope === "receiving") {
       lines.push(
-        `**REC/TGT** ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0}`,
+        `**REC/TGT** ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **1D** ${p.box.receivingFirstDowns ?? "—"} · **FD/RR** ${n(p.firstDownsPerRoute, 2)}`,
         `**Tgt%** ${pct(p.targetShare)} · **TPRR** ${pct(p.targetsPerRoute)} · **YPRR** ${n(p.yprr, 2)}`,
       );
     } else {
       lines.push(
         `Pass: ${p.box.passingYards ?? 0} yds · ${p.box.passingTds ?? 0} TD · ${p.box.interceptions ?? 0} INT`,
-        `Rush: ${p.box.carries ?? 0} att · ${p.box.rushingYards ?? 0} yds · ${p.box.rushingTds ?? 0} TD`,
-        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · ${p.box.receivingYards ?? 0} yds · ${p.box.receivingTds ?? 0} TD`,
+        `Rush: ${p.box.carries ?? 0} att · ${p.box.rushingYards ?? 0} yds · ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)}`,
+        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · ${p.box.receivingYards ?? 0} yds · ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
+        `Total first downs: ${p.firstDowns ?? "—"}`,
       );
     }
     embed.addFields({
@@ -263,6 +283,11 @@ export const LEADER_METRICS = [
   { name: "aDOT", value: "adot" },
   { name: "Rec EPA", value: "rec_epa" },
   { name: "Rush EPA", value: "rush_epa" },
+  { name: "First Downs", value: "fd" },
+  { name: "Rush First Downs", value: "rush_fd" },
+  { name: "Rec First Downs", value: "rec_fd" },
+  { name: "FD/Carry", value: "fd_carry" },
+  { name: "FD/RR", value: "fd_rr" },
   { name: "Targets", value: "tgt" },
   { name: "Receptions", value: "rec" },
   { name: "Rec Yards", value: "rec_yds" },

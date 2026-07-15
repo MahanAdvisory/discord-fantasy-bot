@@ -37,6 +37,11 @@ const SORT_FIELDS = new Set([
   "att",
   "rush_yds",
   "rush_td",
+  "fd",
+  "rush_fd",
+  "rec_fd",
+  "fd_carry",
+  "fd_rr",
   "pass_yds",
   "pass_td",
   "int",
@@ -60,6 +65,15 @@ const SORT_FIELDS = new Set([
   "pos",
   "player",
 ]);
+
+const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr", "fd_rr"]);
+const CARRY_RATE_METRICS = new Set(["fd_carry"]);
+
+function defaultMinimumVolume(sort: string, week: number | null): { value: number; unit: "carries" | "routes" } | null {
+  if (CARRY_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "carries" };
+  if (ROUTE_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "routes" };
+  return null;
+}
 
 function positionFilter(position: string): Prisma.NflPlayerWeekStatWhereInput {
   if (position === "FLEX") return { position: { in: [...FLEX_POSITIONS] } };
@@ -117,6 +131,16 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return Number((row.box as Record<string, number | null> | undefined)?.rushingYards) || -Infinity;
     case "rush_td":
       return Number((row.box as Record<string, number | null> | undefined)?.rushingTds) || -Infinity;
+    case "fd":
+    case "fd_carry":
+    case "fd_rr":
+      return typeof row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : "firstDownsPerRoute"] === "number"
+        ? (row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : "firstDownsPerRoute"] as number)
+        : -Infinity;
+    case "rush_fd":
+      return Number((row.box as Record<string, number | null> | undefined)?.rushingFirstDowns) || -Infinity;
+    case "rec_fd":
+      return Number((row.box as Record<string, number | null> | undefined)?.receivingFirstDowns) || -Infinity;
     case "pass_yds":
       return Number((row.box as Record<string, number | null> | undefined)?.passingYards) || -Infinity;
     case "pass_td":
@@ -202,6 +226,9 @@ export async function GET(req: Request) {
     wopr: number | null;
     rushingEpa: number | null;
     receivingEpa: number | null;
+    firstDowns: number | null;
+    firstDownsPerCarry: number | null;
+    firstDownsPerRoute: number | null;
     rushingYardsExp: number | null;
     startRate: number | null;
     startRateSource: string | null;
@@ -234,6 +261,15 @@ export async function GET(req: Request) {
       offenseSnaps != null && offenseSnaps > 0 && routesRun != null
         ? Math.round((routesRun / offenseSnaps) * 1000) / 1000
         : null;
+    const rushingFirstDowns = r.rushingFirstDowns ?? 0;
+    const receivingFirstDowns = r.receivingFirstDowns ?? 0;
+    const firstDowns = r.rushingFirstDowns != null || r.receivingFirstDowns != null ? rushingFirstDowns + receivingFirstDowns : null;
+    const firstDownsPerCarry =
+      r.carries != null && r.carries > 0 && r.rushingFirstDowns != null ? Math.round((r.rushingFirstDowns / r.carries) * 100) / 100 : null;
+    const firstDownsPerRoute =
+      routesRun != null && routesRun > 0 && r.receivingFirstDowns != null
+        ? Math.round((r.receivingFirstDowns / routesRun) * 100) / 100
+        : null;
     const sr = r.sleeperPlayerId ? startRates.get(r.sleeperPlayerId) : undefined;
     return {
       rank: 0,
@@ -263,6 +299,9 @@ export async function GET(req: Request) {
       wopr: r.wopr,
       rushingEpa: r.rushingEpa,
       receivingEpa: r.receivingEpa ?? null,
+      firstDowns,
+      firstDownsPerCarry,
+      firstDownsPerRoute,
       rushingYardsExp: r.rushingYardsExp,
       startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),
       startRateSource: sr?.source ?? (r.fantasyProsRosterPct != null ? "fantasypros_fallback" : null),
@@ -277,10 +316,12 @@ export async function GET(req: Request) {
         carries: r.carries,
         rushingYards: r.rushingYards,
         rushingTds: r.rushingTds,
+        rushingFirstDowns: r.rushingFirstDowns,
         targets: r.targets,
         receptions: r.receptions,
         receivingYards: r.receivingYards,
         receivingTds: r.receivingTds,
+        receivingFirstDowns: r.receivingFirstDowns,
       },
     };
   });
@@ -368,8 +409,16 @@ export async function GET(req: Request) {
     }
   }
 
+  const minimumVolume = defaultMinimumVolume(sort, week);
+  const eligible = minimumVolume
+    ? scored.filter((row) =>
+        minimumVolume.unit === "carries"
+          ? (row.box.carries ?? 0) >= minimumVolume.value
+          : (row.routesRun ?? 0) >= minimumVolume.value,
+      )
+    : scored;
   const dirMul = sortDir === "asc" ? 1 : -1;
-  scored.sort((a, b) => {
+  eligible.sort((a, b) => {
     const av = sortValue(a as unknown as Record<string, unknown>, sort);
     const bv = sortValue(b as unknown as Record<string, unknown>, sort);
     if (typeof av === "string" || typeof bv === "string") {
@@ -381,7 +430,7 @@ export async function GET(req: Request) {
     return (an - bn) * dirMul;
   });
 
-  const page = scored.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
+  const page = eligible.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
 
   return Response.json(
     {
@@ -394,10 +443,11 @@ export async function GET(req: Request) {
       scoring: preset,
       replacementPoints: Math.round(replacementSummary.fpts * 10) / 10,
       replacementPerGame: Math.round(replacementSummary.fptsPerGame * 10) / 10,
+      minimumVolume,
       attribution:
         "Box scores via nflverse/nflfastR. Expected points via ffopportunity. Participation/routes via FTN Data via nflverse (CC-BY-SA) when present. Roster % fallback via FantasyPros rankings when member start-rate sample is thin.",
       players: page,
-      total: scored.length,
+      total: eligible.length,
     },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );

@@ -91,6 +91,11 @@ export type LeaderboardSortKey =
   | "att"
   | "rush_yds"
   | "rush_td"
+  | "fd"
+  | "rush_fd"
+  | "rec_fd"
+  | "fd_carry"
+  | "fd_rr"
   | "pass_yds"
   | "pass_td"
   | "int"
@@ -117,15 +122,17 @@ export type LeaderboardSortKey =
 
 export type LeaderboardMinimumVolume = {
   value: number;
-  unit: "routes" | "targets" | "snaps";
+  unit: "carries" | "routes" | "targets" | "snaps";
   isDefault: boolean;
 };
 
-const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr"]);
+const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr", "fd_rr"]);
+const CARRY_RATE_METRICS = new Set(["fd_carry"]);
 const TARGET_RATE_METRICS = new Set(["catch_pct", "adot"]);
 const SNAP_RATE_METRICS = new Set(["snap_pct"]);
 
 function defaultMinimumVolume(sort: string, week: number | null): Omit<LeaderboardMinimumVolume, "isDefault"> | null {
+  if (CARRY_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "carries" };
   if (ROUTE_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "routes" };
   if (TARGET_RATE_METRICS.has(sort)) return { value: week == null ? 10 : 2, unit: "targets" };
   if (SNAP_RATE_METRICS.has(sort)) return { value: week == null ? 100 : 10, unit: "snaps" };
@@ -133,6 +140,7 @@ function defaultMinimumVolume(sort: string, week: number | null): Omit<Leaderboa
 }
 
 function volumeFor(row: StatsPlayerRow, unit: LeaderboardMinimumVolume["unit"]): number {
+  if (unit === "carries") return row.box.carries ?? 0;
   if (unit === "routes") return row.routesRun ?? 0;
   if (unit === "targets") return row.box.targets ?? 0;
   return row.offenseSnaps ?? 0;
@@ -166,6 +174,9 @@ export type StatsPlayerRow = {
   wopr: number | null;
   rushingEpa: number | null;
   receivingEpa: number | null;
+  firstDowns: number | null;
+  firstDownsPerCarry: number | null;
+  firstDownsPerRoute: number | null;
   startRate: number | null;
   startRateSource: string | null;
   rosterPct: number | null;
@@ -179,10 +190,12 @@ export type StatsPlayerRow = {
     carries: number | null;
     rushingYards: number | null;
     rushingTds: number | null;
+    rushingFirstDowns: number | null;
     targets: number | null;
     receptions: number | null;
     receivingYards: number | null;
     receivingTds: number | null;
+    receivingFirstDowns: number | null;
   };
 };
 
@@ -261,6 +274,16 @@ function sortValue(row: StatsPlayerRow, sort: string): number | string {
       return row.box.rushingYards ?? -Infinity;
     case "rush_td":
       return row.box.rushingTds ?? -Infinity;
+    case "fd":
+      return row.firstDowns ?? -Infinity;
+    case "rush_fd":
+      return row.box.rushingFirstDowns ?? -Infinity;
+    case "rec_fd":
+      return row.box.receivingFirstDowns ?? -Infinity;
+    case "fd_carry":
+      return row.firstDownsPerCarry ?? -Infinity;
+    case "fd_rr":
+      return row.firstDownsPerRoute ?? -Infinity;
     case "pass_yds":
       return row.box.passingYards ?? -Infinity;
     case "pass_td":
@@ -318,7 +341,9 @@ function enrichRow(
     carries: number | null;
     rushingYards: number | null;
     rushingTds: number | null;
+    rushingFirstDowns: number | null;
     receivingTds: number | null;
+    receivingFirstDowns: number | null;
     rushingFumblesLost: number | null;
     receivingFumblesLost: number | null;
   },
@@ -346,6 +371,15 @@ function enrichRow(
   const routePct =
     offenseSnaps != null && offenseSnaps > 0 && routesRun != null
       ? Math.round((routesRun / offenseSnaps) * 1000) / 1000
+      : null;
+  const rushingFirstDowns = r.rushingFirstDowns ?? 0;
+  const receivingFirstDowns = r.receivingFirstDowns ?? 0;
+  const firstDowns = r.rushingFirstDowns != null || r.receivingFirstDowns != null ? rushingFirstDowns + receivingFirstDowns : null;
+  const firstDownsPerCarry =
+    r.carries != null && r.carries > 0 && r.rushingFirstDowns != null ? Math.round((r.rushingFirstDowns / r.carries) * 100) / 100 : null;
+  const firstDownsPerRoute =
+    routesRun != null && routesRun > 0 && r.receivingFirstDowns != null
+      ? Math.round((r.receivingFirstDowns / routesRun) * 100) / 100
       : null;
   const sr = r.sleeperPlayerId ? startRates.get(r.sleeperPlayerId) : undefined;
   return {
@@ -376,6 +410,9 @@ function enrichRow(
     wopr: r.wopr,
     rushingEpa: r.rushingEpa,
     receivingEpa: r.receivingEpa ?? null,
+    firstDowns,
+    firstDownsPerCarry,
+    firstDownsPerRoute,
     startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),
     startRateSource: sr?.source ?? (r.fantasyProsRosterPct != null ? "fantasypros_fallback" : null),
     rosterPct: r.fantasyProsRosterPct,
@@ -389,10 +426,12 @@ function enrichRow(
       carries: r.carries,
       rushingYards: r.rushingYards,
       rushingTds: r.rushingTds,
+      rushingFirstDowns: r.rushingFirstDowns,
       targets: r.targets,
       receptions: r.receptions,
       receivingYards: r.receivingYards,
       receivingTds: r.receivingTds,
+      receivingFirstDowns: r.receivingFirstDowns,
     },
   };
 }
