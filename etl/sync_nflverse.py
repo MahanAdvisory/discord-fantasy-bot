@@ -252,6 +252,7 @@ def row_from_player_stats(r: dict[str, Any], gsis_map: dict[str, str], grain: st
         "receiving_air_yards": _int(r.get("receiving_air_yards")),
         "receiving_yac": _int(r.get("receiving_yards_after_catch")),
         "receiving_fumbles_lost": _int(r.get("receiving_fumbles_lost")),
+        "receiving_epa": _num(r.get("receiving_epa")),
         "target_share": _num(r.get("target_share")),
         "air_yards_share": _num(r.get("air_yards_share")),
         "wopr": _num(r.get("wopr")),
@@ -270,7 +271,7 @@ INSERT INTO nfl_player_week_stats (
   completions, attempts, passing_yards, passing_tds, interceptions, passing_air_yards, passing_yac,
   carries, rushing_yards, rushing_tds, rushing_fumbles_lost, rushing_epa,
   targets, receptions, receiving_yards, receiving_tds, receiving_air_yards, receiving_yac, receiving_fumbles_lost,
-  target_share, air_yards_share, wopr, racr, fantasy_points, fantasy_points_ppr,
+  receiving_epa, target_share, air_yards_share, wopr, racr, fantasy_points, fantasy_points_ppr,
   fetched_at, updated_at
 ) VALUES (
   %(id)s, %(player_key)s, %(gsis_id)s, %(sleeper_player_id)s, %(season)s, %(week)s, %(season_type)s, %(grain)s,
@@ -278,7 +279,7 @@ INSERT INTO nfl_player_week_stats (
   %(completions)s, %(attempts)s, %(passing_yards)s, %(passing_tds)s, %(interceptions)s, %(passing_air_yards)s, %(passing_yac)s,
   %(carries)s, %(rushing_yards)s, %(rushing_tds)s, %(rushing_fumbles_lost)s, %(rushing_epa)s,
   %(targets)s, %(receptions)s, %(receiving_yards)s, %(receiving_tds)s, %(receiving_air_yards)s, %(receiving_yac)s, %(receiving_fumbles_lost)s,
-  %(target_share)s, %(air_yards_share)s, %(wopr)s, %(racr)s, %(fantasy_points)s, %(fantasy_points_ppr)s,
+  %(receiving_epa)s, %(target_share)s, %(air_yards_share)s, %(wopr)s, %(racr)s, %(fantasy_points)s, %(fantasy_points_ppr)s,
   %(fetched_at)s, %(updated_at)s
 )
 ON CONFLICT (player_key, season, week, season_type, grain) DO UPDATE SET
@@ -308,6 +309,7 @@ ON CONFLICT (player_key, season, week, season_type, grain) DO UPDATE SET
   receiving_air_yards = EXCLUDED.receiving_air_yards,
   receiving_yac = EXCLUDED.receiving_yac,
   receiving_fumbles_lost = EXCLUDED.receiving_fumbles_lost,
+  receiving_epa = EXCLUDED.receiving_epa,
   target_share = EXCLUDED.target_share,
   air_yards_share = EXCLUDED.air_yards_share,
   wopr = EXCLUDED.wopr,
@@ -517,11 +519,9 @@ def sync_routes_tprr(conn, seasons: list[int]) -> None:
                     if not gsis:
                         continue
                     pos = (positions[i].strip().upper() if i < len(positions) else "")
+                    # Prefer skill positions when charted (2023+). Older participation
+                    # exports omit offense_positions — count all offense players then.
                     if pos and pos not in _SKILL_ROUTE_POS:
-                        continue
-                    if not pos:
-                        # If positions missing, still count offense_players on route plays
-                        # for skill-less exports (rare).
                         continue
                     routes[(gsis, week)] = routes.get((gsis, week), 0) + 1
 
