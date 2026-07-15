@@ -28,6 +28,39 @@ function ownershipRateLabel(p: StatsPlayerRow): string {
 
 export type PlayerStatsScope = "receiving" | "rushing" | "passing" | "summary";
 
+function hasMeaningfulValue(...values: Array<number | null | undefined>): boolean {
+  return values.some((value) => value != null && value !== 0);
+}
+
+function hasPassing(p: StatsPlayerRow): boolean {
+  return hasMeaningfulValue(
+    p.box.completions,
+    p.box.attempts,
+    p.box.passingYards,
+    p.box.passingTds,
+    p.box.interceptions,
+  );
+}
+
+function hasRushing(p: StatsPlayerRow): boolean {
+  return hasMeaningfulValue(
+    p.box.carries,
+    p.box.rushingYards,
+    p.box.rushingTds,
+    p.box.rushingFirstDowns,
+  );
+}
+
+function hasReceiving(p: StatsPlayerRow): boolean {
+  return hasMeaningfulValue(
+    p.box.targets,
+    p.box.receptions,
+    p.box.receivingYards,
+    p.box.receivingTds,
+    p.box.receivingFirstDowns,
+  );
+}
+
 export function buildPlayerStatsEmbed(args: {
   player: StatsPlayerRow;
   season: number;
@@ -48,7 +81,7 @@ export function buildPlayerStatsEmbed(args: {
 
   const lines: string[] = [];
   if (scope === "receiving" || scope === "summary") {
-    if (scope === "receiving") {
+    if (scope === "receiving" && hasReceiving(p)) {
       lines.push(
         `**REC** ${p.box.receptions ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **TGT** ${p.box.targets ?? 0}`,
         `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
@@ -61,7 +94,7 @@ export function buildPlayerStatsEmbed(args: {
       );
     }
   }
-  if (scope === "rushing") {
+  if (scope === "rushing" && hasRushing(p)) {
     const ypc =
       p.box.carries && p.box.carries > 0 && p.box.rushingYards != null
         ? p.box.rushingYards / p.box.carries
@@ -73,7 +106,7 @@ export function buildPlayerStatsEmbed(args: {
       `**Rush EPA** ${n(p.rushingEpa, 2)} · **Snaps** ${p.offenseSnaps ?? "—"} · **Snap%** ${pct(p.offenseSnapPct)} · **G** ${p.games}`,
     );
   }
-  if (scope === "passing") {
+  if (scope === "passing" && hasPassing(p)) {
     lines.push(
       `**CMP/ATT** ${p.box.completions ?? 0}/${p.box.attempts ?? 0} · **YDS** ${p.box.passingYards ?? 0} · **TD** ${p.box.passingTds ?? 0} · **INT** ${p.box.interceptions ?? 0}`,
       `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
@@ -85,17 +118,17 @@ export function buildPlayerStatsEmbed(args: {
       `**G** ${p.games} · **FPTS** ${n(p.fpts)} · **FPTS/G** ${n(p.fptsPerGame)} · **VORP** ${n(p.vorp)}`,
       `**xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **${ownershipRateLabel(p)}** ${pct(p.startRate)}`,
     );
-    if (p.position === "QB" || (p.box.attempts ?? 0) > 0) {
+    if (hasPassing(p)) {
       lines.push(
         `Pass: ${p.box.completions ?? 0}/${p.box.attempts ?? 0}, ${p.box.passingYards ?? 0} yds, ${p.box.passingTds ?? 0} TD, ${p.box.interceptions ?? 0} INT`,
       );
     }
-    if ((p.box.carries ?? 0) > 0 || p.position === "RB") {
+    if (hasRushing(p)) {
       lines.push(
         `Rush: ${p.box.carries ?? 0} att, ${p.box.rushingYards ?? 0} yds, ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)} · EPA ${n(p.rushingEpa, 2)}`,
       );
     }
-    if ((p.box.targets ?? 0) > 0 || p.position === "WR" || p.position === "TE") {
+    if (hasReceiving(p)) {
       lines.push(
         `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0}, ${p.box.receivingYards ?? 0} yds, ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
         `Total 1D ${p.firstDowns ?? "—"} · Tgt% ${pct(p.targetShare)} · TPRR ${pct(p.targetsPerRoute)} · YPRR ${n(p.yprr, 2)} · aDOT ${n(p.adot, 1)} · Rec EPA ${n(p.receivingEpa, 2)}`,
@@ -103,6 +136,9 @@ export function buildPlayerStatsEmbed(args: {
     }
   }
 
+  if (lines.length === 0) {
+    lines.push(`_No ${scope} statistics recorded for this period._`);
+  }
   embed.setDescription(discordText(`${embed.data.description}\n\n${lines.join("\n")}`, 4_096));
   return embed;
 }
@@ -237,30 +273,46 @@ export function buildPlayerCompareEmbed(args: {
     .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
     .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
 
+  const showPassing = players.some(hasPassing);
+  const showRushing = players.some(hasRushing);
+  const showReceiving = players.some(hasReceiving);
+
   for (const p of players) {
     const lines = [
       `**G** ${p.games} · **FPTS** ${n(p.fpts)} · **FPTS/G** ${n(p.fptsPerGame)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **${ownershipRateLabel(p)}** ${pct(p.startRate)}`,
     ];
-    if (scope === "passing") {
+    if (scope === "passing" && showPassing) {
       lines.push(
         `**CMP/ATT** ${p.box.completions ?? 0}/${p.box.attempts ?? 0} · **YDS** ${p.box.passingYards ?? 0} · **TD** ${p.box.passingTds ?? 0} · **INT** ${p.box.interceptions ?? 0}`,
       );
-    } else if (scope === "rushing") {
+    } else if (scope === "rushing" && showRushing) {
       lines.push(
         `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **1D** ${p.box.rushingFirstDowns ?? "—"} · **FD/Carry** ${n(p.firstDownsPerCarry, 2)} · **EPA** ${n(p.rushingEpa, 2)}`,
       );
-    } else if (scope === "receiving") {
+    } else if (scope === "receiving" && showReceiving) {
       lines.push(
         `**REC/TGT** ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **1D** ${p.box.receivingFirstDowns ?? "—"} · **FD/RR** ${n(p.firstDownsPerRoute, 2)}`,
         `**Tgt%** ${pct(p.targetShare)} · **TPRR** ${pct(p.targetsPerRoute)} · **YPRR** ${n(p.yprr, 2)}`,
       );
     } else {
-      lines.push(
-        `Pass: ${p.box.passingYards ?? 0} yds · ${p.box.passingTds ?? 0} TD · ${p.box.interceptions ?? 0} INT`,
-        `Rush: ${p.box.carries ?? 0} att · ${p.box.rushingYards ?? 0} yds · ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)}`,
-        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · ${p.box.receivingYards ?? 0} yds · ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
-        `Total first downs: ${p.firstDowns ?? "—"}`,
-      );
+      if (scope === "summary") {
+        if (showPassing) {
+          lines.push(`Pass: ${p.box.passingYards ?? 0} yds · ${p.box.passingTds ?? 0} TD · ${p.box.interceptions ?? 0} INT`);
+        }
+        if (showRushing) {
+          lines.push(
+            `Rush: ${p.box.carries ?? 0} att · ${p.box.rushingYards ?? 0} yds · ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)}`,
+          );
+        }
+        if (showReceiving) {
+          lines.push(
+            `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · ${p.box.receivingYards ?? 0} yds · ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
+          );
+        }
+        if (showRushing || showReceiving) {
+          lines.push(`Total first downs: ${p.firstDowns ?? "—"}`);
+        }
+      }
     }
     embed.addFields({
       name: discordText(`${p.playerName ?? "Player"}${p.team ? ` (${p.team})` : ""}${p.position ? ` · ${p.position}` : ""}`, 256),
