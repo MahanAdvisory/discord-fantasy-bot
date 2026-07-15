@@ -43,6 +43,7 @@ import {
   resolveLineupLeagueIdsForUser,
   runLineupCheckAcrossLeagues,
 } from "../services/lineupCheck.js";
+import { playerStatsCommand, statsLeadersCommand } from "./statsCommands.js";
 
 /**
  * Discord now expects `contexts` + `integration_types` on slash commands. Without them, newer apps
@@ -200,6 +201,8 @@ const slashCommandBuilders = [
         .setName("sleeper_league_id")
         .setDescription("Optional league id for replay reset scope; omit to reset all leagues"),
     ),
+  playerStatsCommand,
+  statsLeadersCommand,
 ];
 
 export const commands = slashCommandBuilders.map((b) =>
@@ -297,7 +300,9 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     commandName !== "flex-check" &&
     commandName !== "draft-check" &&
     commandName !== "draft-status" &&
-    commandName !== "poll-now"
+    commandName !== "poll-now" &&
+    commandName !== "player-stats" &&
+    commandName !== "stats-leaders"
   ) {
     await interaction.reply({ content: "Use this command in a server.", ...slashEphemeral(interaction) });
     return;
@@ -465,6 +470,8 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/subscribe` / `/unsubscribe` — manage league/category notifications",
       "• `/subscribe-espn` / `/unsubscribe-espn` — manage ESPN routes",
       "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
+      "• `/player-stats` — receiving / rushing / passing / summary (channel or private)",
+      "• `/stats-leaders` — top-N by FPTS, FPOE, VORP, Tgt%, …",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
     return;
@@ -645,6 +652,20 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       ...slashEphemeral(interaction),
       content: `Removed **${result.count}** ESPN route(s).`,
     });
+    return;
+  }
+
+  // These commands use nflverse data and do not require a linked Sleeper account.
+  // Entitlement is enforced by the interaction gateway before this handler runs.
+  if (commandName === "player-stats") {
+    const { handlePlayerStatsCommand } = await import("./statsCommands.js");
+    await handlePlayerStatsCommand(interaction);
+    return;
+  }
+
+  if (commandName === "stats-leaders") {
+    const { handleStatsLeadersCommand } = await import("./statsCommands.js");
+    await handleStatsLeadersCommand(interaction);
     return;
   }
 
@@ -1251,4 +1272,5 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     await interaction.channel?.send({ embeds: [embed] });
     await interaction.editReply({ content: "Posted." });
   }
+
 }

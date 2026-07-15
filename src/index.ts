@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { commands, handleInteraction, slashEphemeral } from "./bot/commands.js";
+import { handlePlayerStatsAutocomplete } from "./bot/statsCommands.js";
 import { prisma } from "./db.js";
 import {
   commandAllowedWithoutSubscription,
@@ -62,6 +63,17 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    try {
+      if (interaction.commandName === "player-stats") {
+        await handlePlayerStatsAutocomplete(interaction);
+      }
+    } catch (e) {
+      log.error("autocomplete_handler_failed", { err: e instanceof Error ? e.message : String(e) });
+      await interaction.respond([]).catch(() => {});
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   try {
     await ensureUserForDiscord(interaction.user.id);
