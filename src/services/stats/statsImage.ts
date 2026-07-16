@@ -1,4 +1,7 @@
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ScoringPreset } from "../../domain/fantasyScoring.js";
 import type { StatsPlayerRow } from "./leaderboardQuery.js";
 import type { PlayerStatsScope } from "./discordReports.js";
@@ -16,6 +19,34 @@ const decimal = (value: number, digits = 1) =>
   value.toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1");
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 const number = (value: number | null | undefined) => (value != null && Number.isFinite(value) ? value : null);
+
+const FONT_FAMILY = "InterStats";
+let fontsRegistered = false;
+
+function registerFonts(): void {
+  if (fontsRegistered) return;
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(process.cwd(), "assets", "fonts"),
+    path.join(here, "..", "..", "..", "assets", "fonts"),
+  ];
+  const fontDir = candidates.find((dir) => fs.existsSync(path.join(dir, "Inter-Regular.ttf")));
+  if (!fontDir) {
+    throw new Error(
+      `Stats image fonts missing (looked in ${candidates.join(", ")}). Bundle assets/fonts with the bot.`,
+    );
+  }
+  GlobalFonts.registerFromPath(path.join(fontDir, "Inter-Regular.ttf"), FONT_FAMILY);
+  const bold = path.join(fontDir, "Inter-Bold.ttf");
+  const semi = path.join(fontDir, "Inter-SemiBold.ttf");
+  if (fs.existsSync(bold)) GlobalFonts.registerFromPath(bold, FONT_FAMILY);
+  if (fs.existsSync(semi)) GlobalFonts.registerFromPath(semi, FONT_FAMILY);
+  fontsRegistered = true;
+}
+
+function font(weight: 400 | 500 | 600 | 700, size: number): string {
+  return `${weight} ${size}px ${FONT_FAMILY}`;
+}
 
 const SUMMARY: Metric[] = [
   { label: "G", value: (p) => p.games, format: count },
@@ -97,6 +128,7 @@ export function renderPlayerStatsImage(args: {
   scoring: ScoringPreset;
   week?: number | null;
 }): Buffer {
+  registerFonts();
   const { playerName, playerTeam, playerPosition, seasons, scope, scoring, week = null } = args;
   const players = seasons.flatMap((entry) => (entry.player ? [entry.player] : []));
   const groups = groupsFor(players, scope);
@@ -105,7 +137,7 @@ export function renderPlayerStatsImage(args: {
     : [...seasons.map((entry) => String(entry.season).slice(-2)), "AVG", "17G"];
   const rows = groups.reduce((total, group) => total + group.metrics.length + 1, 0);
   const width = 1080;
-  const height = Math.max(360, 210 + rows * 42 + 64);
+  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 56);
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -117,10 +149,10 @@ export function renderPlayerStatsImage(args: {
   ctx.fillRect(0, 146, width, 4);
 
   ctx.fillStyle = "#f4f7fb";
-  ctx.font = "700 36px sans-serif";
+  ctx.font = font(700, 36);
   ctx.fillText(playerName, 42, 56);
   ctx.fillStyle = "#b9c6da";
-  ctx.font = "500 22px sans-serif";
+  ctx.font = font(500, 22);
   const identity = [playerTeam, playerPosition].filter(Boolean).join(" · ");
   ctx.fillText(`${identity ? `${identity} · ` : ""}${scope.toUpperCase()} STATS`, 42, 90);
   const period = week != null
@@ -129,7 +161,7 @@ export function renderPlayerStatsImage(args: {
       ? `${seasons[0]?.season ?? ""} season`
       : `${seasons[0]?.season}–${seasons.at(-1)?.season} · AVG = yearly average · 17G = totals/game × 17`;
   ctx.fillStyle = "#91a4c2";
-  ctx.font = "400 19px sans-serif";
+  ctx.font = font(400, 19);
   ctx.fillText(`${period} · ${scoringLabel(scoring)}`, 42, 122);
 
   const labelX = 50;
@@ -140,10 +172,10 @@ export function renderPlayerStatsImage(args: {
     ctx.fillStyle = "#24324b";
     ctx.fillRect(34, y - 26, width - 68, 34);
     ctx.fillStyle = "#68d7ff";
-    ctx.font = "700 18px sans-serif";
+    ctx.font = font(700, 18);
     ctx.fillText(group.title, labelX, y - 3);
     ctx.fillStyle = "#c7d3e6";
-    ctx.font = "700 17px sans-serif";
+    ctx.font = font(700, 17);
     headers.forEach((header, index) => {
       ctx.textAlign = "right";
       ctx.fillText(header, startX + colWidth * (index + 1) - 8, y - 3);
@@ -156,7 +188,7 @@ export function renderPlayerStatsImage(args: {
         ctx.fillRect(34, y - 24, width - 68, 34);
       }
       ctx.fillStyle = "#dce6f5";
-      ctx.font = "500 20px sans-serif";
+      ctx.font = font(500, 20);
       ctx.fillText(metric.label, labelX, y);
       const values = seasons.length === 1
         ? [rowValue(metric, seasons[0]?.player ?? null)]
@@ -166,7 +198,7 @@ export function renderPlayerStatsImage(args: {
             seventeenGameMetric(metric, players),
           ];
       ctx.fillStyle = "#ffffff";
-      ctx.font = "600 20px sans-serif";
+      ctx.font = font(600, 20);
       ctx.textAlign = "right";
       values.forEach((value, index) => ctx.fillText(value, startX + colWidth * (index + 1) - 8, y));
       ctx.textAlign = "left";
@@ -175,8 +207,12 @@ export function renderPlayerStatsImage(args: {
     y += 16;
   }
   ctx.fillStyle = "#7f91ad";
-  ctx.font = "400 16px sans-serif";
-  ctx.fillText("FPTS = fantasy points · FPG = fantasy points/game · xFP = expected fantasy points · FPOE = fantasy points over expected", 42, height - 28);
+  ctx.font = font(400, 16);
+  ctx.fillText(
+    "FPTS = fantasy points · FPG = fantasy points/game · xFP = expected fantasy points · FPOE = fantasy points over expected",
+    42,
+    height - 28,
+  );
   return canvas.toBuffer("image/png");
 }
 
