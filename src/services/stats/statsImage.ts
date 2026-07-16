@@ -135,20 +135,38 @@ type ScatterAxis = {
   percent?: boolean;
 };
 
-export type ReceivingScatterConfig = {
+export type LeadersScatterConfig = {
   x: ScatterAxis;
   y: ScatterAxis;
 };
+
+/** @deprecated Use LeadersScatterConfig. */
+export type ReceivingScatterConfig = LeadersScatterConfig;
 
 const targetAxis: ScatterAxis = {
   metric: "tgt",
   label: "Targets",
   value: (player) => number(player.box.targets),
 };
+const carryAxis: ScatterAxis = {
+  metric: "att",
+  label: "Carries",
+  value: (player) => number(player.box.carries),
+};
+const passAttemptAxis: ScatterAxis = {
+  metric: "pass_att",
+  label: "Pass attempts",
+  value: (player) => number(player.box.attempts),
+};
 const routeAxis: ScatterAxis = {
   metric: "routes",
   label: "Routes",
   value: (player) => number(player.routesRun),
+};
+const snapAxis: ScatterAxis = {
+  metric: "snaps",
+  label: "Snaps",
+  value: (player) => number(player.offenseSnaps),
 };
 const targetShareAxis: ScatterAxis = {
   metric: "tgt_pct",
@@ -161,6 +179,20 @@ const yprrAxis: ScatterAxis = {
   label: "YPRR",
   value: (player) => number(player.yprr),
 };
+const firstDownsPerCarryAxis: ScatterAxis = {
+  metric: "fd_carry",
+  label: "FD/Carry",
+  value: (player) => number(player.firstDownsPerCarry),
+};
+const ypaAxis: ScatterAxis = {
+  metric: "ypa",
+  label: "YPA",
+  value: (player) => {
+    const attempts = player.box.attempts;
+    const yards = player.box.passingYards;
+    return attempts != null && attempts > 0 && yards != null ? yards / attempts : null;
+  },
+};
 
 const receivingRateAxes: Record<string, ScatterAxis> = {
   tgt_pct: targetShareAxis,
@@ -172,16 +204,13 @@ const receivingRateAxes: Record<string, ScatterAxis> = {
   snap_pct: { metric: "snap_pct", label: "Snap%", value: (player) => number(player.offenseSnapPct), percent: true },
 };
 
-/**
- * Defines the receiving-only scatter plots used by stats-leaders image output.
- * Returning null intentionally leaves non-receiving metrics on the table image.
- */
-export function receivingScatterConfig(metric: string): ReceivingScatterConfig | null {
+/** Defines the scatter plots used by stats-leaders image output. */
+export function leadersScatterConfig(metric: string): LeadersScatterConfig | null {
   const normalized = metric.toLowerCase();
   const rateAxis = receivingRateAxes[normalized];
   if (rateAxis) {
     return {
-      x: ["yprr", "tprr", "fd_rr"].includes(normalized) ? routeAxis : targetAxis,
+      x: normalized === "snap_pct" ? snapAxis : ["yprr", "tprr", "fd_rr"].includes(normalized) ? routeAxis : targetAxis,
       y: rateAxis,
     };
   }
@@ -189,8 +218,21 @@ export function receivingScatterConfig(metric: string): ReceivingScatterConfig |
     return { x: targetAxis, y: targetShareAxis };
   }
   if (normalized === "routes") return { x: routeAxis, y: yprrAxis };
+  if (["rush_epa", "fd_carry"].includes(normalized)) {
+    return {
+      x: carryAxis,
+      y: normalized === "rush_epa"
+        ? { metric: "rush_epa", label: "Rush EPA", value: (player) => number(player.rushingEpa) }
+        : firstDownsPerCarryAxis,
+    };
+  }
+  if (["rush_yds", "rush_fd"].includes(normalized)) return { x: carryAxis, y: firstDownsPerCarryAxis };
+  if (normalized === "pass_yds") return { x: passAttemptAxis, y: ypaAxis };
   return null;
 }
+
+/** @deprecated Use leadersScatterConfig. */
+export const receivingScatterConfig = leadersScatterConfig;
 
 function abbreviatedName(player: StatsPlayerRow): string {
   const words = (player.playerName ?? "Player").trim().split(/\s+/).filter(Boolean);
@@ -201,7 +243,7 @@ function abbreviatedName(player: StatsPlayerRow): string {
 
 function scatterAxisText(axis: ScatterAxis, value: number): string {
   if (axis.percent) return `${Math.round(value * 100)}%`;
-  return axis.metric === "yprr" || axis.metric === "fd_rr" || axis.metric === "rec_epa" || axis.metric === "adot"
+  return ["yprr", "fd_rr", "fd_carry", "rec_epa", "rush_epa", "adot", "ypa"].includes(axis.metric)
     ? decimal(value, 1)
     : count(value);
 }
@@ -218,7 +260,7 @@ function scatterSubtitle(args: {
     period,
     scoringLabel(args.scoring),
     args.minimumVolume ? `min ${args.minimumVolume.value} ${args.minimumVolume.unit}` : null,
-    args.team ? `${args.team} only` : null,
+    args.team ? `highlights: ${args.team} filter` : null,
   ].filter(Boolean).join(" · ");
 }
 
@@ -229,7 +271,7 @@ function truncate(ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>
   return `${result}…`;
 }
 
-export function renderReceivingScatterImage(args: {
+export function renderLeadersScatterImage(args: {
   cohort: StatsPlayerRow[];
   highlights: StatsPlayerRow[];
   season: number;
@@ -241,8 +283,8 @@ export function renderReceivingScatterImage(args: {
   minimumVolume?: { value: number; unit: string } | null;
 }): Buffer {
   registerFonts();
-  const config = receivingScatterConfig(args.metric);
-  if (!config) throw new Error(`No receiving scatter configuration for ${args.metric}`);
+  const config = leadersScatterConfig(args.metric);
+  if (!config) throw new Error(`No scatter configuration for ${args.metric}`);
 
   const points = args.cohort
     .map((player) => ({ player, x: config.x.value(player), y: config.y.value(player) }))
@@ -264,14 +306,14 @@ export function renderReceivingScatterImage(args: {
   ctx.fillRect(0, 176, width, 4);
   ctx.fillStyle = "#f4f7fb";
   ctx.font = font(700, 36);
-  ctx.fillText(`${args.season} ${args.position}${args.team ? ` · ${args.team}` : ""} · ${config.x.label} vs ${config.y.label}`, 42, 58);
+  ctx.fillText(`${args.season} ${args.position} · ${config.x.label} vs ${config.y.label}`, 42, 58);
   ctx.fillStyle = "#b9c6da";
   ctx.font = font(500, 21);
   ctx.fillText(scatterSubtitle(args), 42, 94);
   ctx.fillStyle = "#91a4c2";
   ctx.font = font(400, 17);
   ctx.fillText(
-    `${points.length} volume-qualified receivers · highlighted: top ${highlighted.length} by ${LEADER_METRIC_LABELS[args.metric] ?? args.metric.toUpperCase()}`,
+    `${points.length} volume-qualified players · highlighted: top ${highlighted.length} by ${LEADER_METRIC_LABELS[args.metric] ?? args.metric.toUpperCase()}`,
     42,
     126,
   );
@@ -360,6 +402,9 @@ export function renderReceivingScatterImage(args: {
   ctx.fillText("Data: nflverse / nflfastR · ffopportunity · FTN when present", 42, height - 16);
   return canvas.toBuffer("image/png");
 }
+
+/** @deprecated Use renderLeadersScatterImage. */
+export const renderReceivingScatterImage = renderLeadersScatterImage;
 
 export function renderLeadersImage(args: {
   players: StatsPlayerRow[];

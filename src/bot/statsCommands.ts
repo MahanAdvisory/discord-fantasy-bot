@@ -22,11 +22,11 @@ import {
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
 import {
-  receivingScatterConfig,
+  leadersScatterConfig,
   renderLeadersImage,
+  renderLeadersScatterImage,
   renderPlayerCompareImage,
   renderPlayerStatsImage,
-  renderReceivingScatterImage,
 } from "../services/stats/statsImage.js";
 import { log } from "../logging.js";
 
@@ -524,7 +524,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     minimumVolume: board.minimumVolume,
   });
   if (useImageFormat(format, 1 + extraMetrics.length)) {
-    const scatter = receivingScatterConfig(metric);
+    const scatter = leadersScatterConfig(metric);
     if (scatter) {
       const cohort = await queryLeaderboard({
         season,
@@ -534,10 +534,10 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
         dir: "desc",
         limit: 100,
         scoring,
-        team,
+        // Preserve the full positional cohort; team-filtered board players are highlights.
         minimumVolumeFilter: board.minimumVolume,
       });
-      const image = renderReceivingScatterImage({
+      const image = renderLeadersScatterImage({
         cohort: cohort.players,
         highlights: board.players,
         season,

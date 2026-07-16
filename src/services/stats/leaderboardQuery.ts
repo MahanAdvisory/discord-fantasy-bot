@@ -97,6 +97,7 @@ export type LeaderboardSortKey =
   | "fd_carry"
   | "fd_rr"
   | "pass_yds"
+  | "pass_att"
   | "pass_td"
   | "int"
   | "cmp"
@@ -286,6 +287,8 @@ function sortValue(row: StatsPlayerRow, sort: string): number | string {
       return row.firstDownsPerRoute ?? -Infinity;
     case "pass_yds":
       return row.box.passingYards ?? -Infinity;
+    case "pass_att":
+      return row.box.attempts ?? -Infinity;
     case "pass_td":
       return row.box.passingTds ?? -Infinity;
     case "int":
