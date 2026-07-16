@@ -21,13 +21,19 @@ import {
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
-import { renderPlayerStatsImage } from "../services/stats/statsImage.js";
+import { renderPlayerCompareImage, renderPlayerStatsImage } from "../services/stats/statsImage.js";
 import { log } from "../logging.js";
+
+type StatsFormat = "auto" | "text" | "image";
 
 function replyFlags(visibility: string | null): { flags?: MessageFlags.Ephemeral } {
   const wantPrivate = (visibility ?? "channel").toLowerCase() === "private";
   if (wantPrivate) return { flags: MessageFlags.Ephemeral };
   return {};
+}
+
+function useImageFormat(format: StatsFormat, dataColumns: number): boolean {
+  return format === "image" || (format === "auto" && dataColumns > 2);
 }
 
 export const playerStatsCommand = new SlashCommandBuilder()
@@ -76,6 +82,12 @@ export const playerStatsCommand = new SlashCommandBuilder()
       .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
   )
   .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
+  .addStringOption((o) =>
+    o
+      .setName("format")
+      .setDescription("Output format (Auto uses image for more than 2 columns)")
+      .addChoices({ name: "Auto", value: "auto" }, { name: "Text", value: "text" }, { name: "Image", value: "image" }),
+  )
   .addStringOption((o) =>
     o
       .setName("visibility")
@@ -239,6 +251,12 @@ export const playerCompareCommand = new SlashCommandBuilder()
   .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
   .addStringOption((o) =>
     o
+      .setName("format")
+      .setDescription("Output format (Auto uses image for more than 2 columns)")
+      .addChoices({ name: "Auto", value: "auto" }, { name: "Text", value: "text" }, { name: "Image", value: "image" }),
+  )
+  .addStringOption((o) =>
+    o
       .setName("visibility")
       .setDescription("Where to post the reply (defaults to this channel)")
       .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
@@ -267,6 +285,7 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
   const weekRaw = interaction.options.getInteger("week");
   const week = window === 1 && weekRaw != null && weekRaw > 0 ? weekRaw : null;
   const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
+  const format = (interaction.options.getString("format") ?? "auto") as StatsFormat;
   const visibility = interaction.options.getString("visibility");
   const scoring = scoringFromOptions({
     scoring: interaction.options.getString("scoring"),
@@ -282,6 +301,25 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
       await interaction.editReply({ content: `No stats found for **${player}** in ${season}.` });
       return;
     }
+    const content = weekRaw != null
+      ? `_Week is ignored when using a ${window}-season window._`
+      : undefined;
+    if (useImageFormat(format, found.seasons.length + 2)) {
+      const image = renderPlayerStatsImage({
+        playerName: found.playerName,
+        playerTeam: found.playerTeam,
+        playerPosition: found.playerPosition,
+        seasons: found.seasons,
+        scope,
+        scoring,
+      });
+      const embed = new EmbedBuilder()
+        .setTitle(`${found.playerName} — stats`)
+        .setDescription(`${window}-season window ending ${season} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
+        .setImage("attachment://stats.png");
+      await interaction.editReply({ content, embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
+      return;
+    }
     const embed = buildMultiYearPlayerStatsEmbed({
       playerName: found.playerName,
       playerTeam: found.playerTeam,
@@ -290,15 +328,37 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
       scope,
       scoring,
     });
-    const content = weekRaw != null
-      ? `_Week is ignored when using a ${window}-season window._`
-      : undefined;
     await interaction.editReply({ content, embeds: [embed] });
     return;
   }
   const found = await findPlayerStats({ playerQuery: player, season, week, scoring });
   if (!found) {
     await interaction.editReply({ content: `No stats found for **${player}** in ${season}${week != null ? ` week ${week}` : ""}.` });
+    return;
+  }
+  let content: string | undefined;
+  if (found.matches.length > 1) {
+    const others = found.matches
+      .slice(0, 5)
+      .map((m) => `${m.name}${m.team ? ` (${m.team})` : ""}`)
+      .join(", ");
+    content = `_Showing best match. Also matched: ${others}_`;
+  }
+  if (useImageFormat(format, 1)) {
+    const image = renderPlayerStatsImage({
+      playerName: found.player.playerName ?? player,
+      playerTeam: found.player.team,
+      playerPosition: found.player.position,
+      seasons: [{ season, player: found.player }],
+      scope,
+      scoring,
+      week,
+    });
+    const embed = new EmbedBuilder()
+      .setTitle(`${found.player.playerName ?? player} — stats`)
+      .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
+      .setImage("attachment://stats.png");
+    await interaction.editReply({ content, embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
     return;
   }
   const embed = buildPlayerStatsEmbed({
@@ -308,14 +368,6 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
     scope,
     scoring,
   });
-  let content: string | undefined;
-  if (found.matches.length > 1) {
-    const others = found.matches
-      .slice(0, 5)
-      .map((m) => `${m.name}${m.team ? ` (${m.team})` : ""}`)
-      .join(", ");
-    content = `_Showing best match. Also matched: ${others}_`;
-  }
   await interaction.editReply({ content, embeds: [embed] });
 }
 
@@ -448,6 +500,7 @@ export async function handlePlayerCompareCommand(interaction: ChatInputCommandIn
   const weekRaw = interaction.options.getInteger("week");
   const week = weekRaw != null && weekRaw > 0 ? weekRaw : null;
   const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
+  const format = (interaction.options.getString("format") ?? "auto") as StatsFormat;
   const flags = replyFlags(interaction.options.getString("visibility"));
   const scoring = scoringFromOptions({
     scoring: interaction.options.getString("scoring"),
@@ -464,12 +517,16 @@ export async function handlePlayerCompareCommand(interaction: ChatInputCommandIn
     });
     return;
   }
-  const embed = buildPlayerCompareEmbed({
-    players: found.map((result) => result!.player),
-    season,
-    week,
-    scope,
-    scoring,
-  });
+  const players = found.map((result) => result!.player);
+  if (useImageFormat(format, players.length)) {
+    const image = renderPlayerCompareImage({ players, season, week, scope, scoring });
+    const embed = new EmbedBuilder()
+      .setTitle("Player comparison")
+      .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
+      .setImage("attachment://stats.png");
+    await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
+    return;
+  }
+  const embed = buildPlayerCompareEmbed({ players, season, week, scope, scoring });
   await interaction.editReply({ embeds: [embed] });
 }

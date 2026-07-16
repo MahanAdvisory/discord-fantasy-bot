@@ -119,6 +119,11 @@ function rowValue(metric: Metric, player: StatsPlayerRow | null): string {
   return raw == null || !Number.isFinite(raw) ? "—" : (metric.format ?? ((value: number) => decimal(value)))(raw);
 }
 
+function playerColumnHeader(player: StatsPlayerRow): string {
+  const name = (player.playerName ?? "Player").trim();
+  return name.length <= 15 ? name : `${name.slice(0, 14)}…`;
+}
+
 export function renderPlayerStatsImage(args: {
   playerName: string;
   playerTeam: string | null;
@@ -201,6 +206,88 @@ export function renderPlayerStatsImage(args: {
       ctx.font = font(600, 20);
       ctx.textAlign = "right";
       values.forEach((value, index) => ctx.fillText(value, startX + colWidth * (index + 1) - 8, y));
+      ctx.textAlign = "left";
+      y += 34;
+    });
+    y += 16;
+  }
+  ctx.fillStyle = "#7f91ad";
+  ctx.font = font(400, 16);
+  ctx.fillText(
+    "FPTS = fantasy points · FPG = fantasy points/game · xFP = expected fantasy points · FPOE = fantasy points over expected",
+    42,
+    height - 28,
+  );
+  return canvas.toBuffer("image/png");
+}
+
+export function renderPlayerCompareImage(args: {
+  players: StatsPlayerRow[];
+  season: number;
+  week: number | null;
+  scope: PlayerStatsScope;
+  scoring: ScoringPreset;
+}): Buffer {
+  registerFonts();
+  const { players, season, week, scope, scoring } = args;
+  const groups = groupsFor(players, scope);
+  const headers = players.map(playerColumnHeader);
+  const rows = groups.reduce((total, group) => total + group.metrics.length + 1, 0);
+  const width = 1080;
+  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 56);
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#101724";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#182235";
+  ctx.fillRect(0, 0, width, 150);
+  ctx.fillStyle = "#68d7ff";
+  ctx.fillRect(0, 146, width, 4);
+
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = font(700, 36);
+  ctx.fillText("Player comparison", 42, 56);
+  ctx.fillStyle = "#b9c6da";
+  ctx.font = font(500, 22);
+  ctx.fillText(`${scope.toUpperCase()} STATS`, 42, 90);
+  ctx.fillStyle = "#91a4c2";
+  ctx.font = font(400, 19);
+  const period = week == null ? `${season} season` : `${season} · Week ${week}`;
+  ctx.fillText(`${period} · ${scoringLabel(scoring)}`, 42, 122);
+
+  const labelX = 50;
+  const startX = 300;
+  const colWidth = (width - startX - 42) / headers.length;
+  let y = 184;
+  for (const group of groups) {
+    ctx.fillStyle = "#24324b";
+    ctx.fillRect(34, y - 26, width - 68, 34);
+    ctx.fillStyle = "#68d7ff";
+    ctx.font = font(700, 18);
+    ctx.fillText(group.title, labelX, y - 3);
+    ctx.fillStyle = "#c7d3e6";
+    ctx.font = font(700, 17);
+    headers.forEach((header, index) => {
+      ctx.textAlign = "right";
+      ctx.fillText(header, startX + colWidth * (index + 1) - 8, y - 3);
+    });
+    ctx.textAlign = "left";
+    y += 30;
+    group.metrics.forEach((metric, rowIndex) => {
+      if (rowIndex % 2 === 0) {
+        ctx.fillStyle = "#151f30";
+        ctx.fillRect(34, y - 24, width - 68, 34);
+      }
+      ctx.fillStyle = "#dce6f5";
+      ctx.font = font(500, 20);
+      ctx.fillText(metric.label, labelX, y);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = font(600, 20);
+      ctx.textAlign = "right";
+      players.forEach((player, index) => {
+        ctx.fillText(rowValue(metric, player), startX + colWidth * (index + 1) - 8, y);
+      });
       ctx.textAlign = "left";
       y += 34;
     });

@@ -479,9 +479,9 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/subscribe` / `/unsubscribe` — manage league/category notifications",
       "• `/subscribe-espn` / `/unsubscribe-espn` — manage ESPN routes",
       "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
-      "• `/player-stats` — receiving / rushing / passing / summary (channel or private)",
+      "• `/player-stats` — receiving / rushing / passing / summary; choose Auto, text, or image format",
       "• `/player-stats-mobile` — a phone-friendly PNG stats card",
-      "• `/player-compare` — compare two or three players side-by-side",
+      "• `/player-compare` — compare two or three players side-by-side; choose Auto, text, or image format",
       "• `/stats-leaders` — top-N by FPTS, FPOE, VORP, Tgt%, …",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
