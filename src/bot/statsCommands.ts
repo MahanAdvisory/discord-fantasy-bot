@@ -21,7 +21,13 @@ import {
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
-import { renderLeadersImage, renderPlayerCompareImage, renderPlayerStatsImage } from "../services/stats/statsImage.js";
+import {
+  receivingScatterConfig,
+  renderLeadersImage,
+  renderPlayerCompareImage,
+  renderPlayerStatsImage,
+  renderReceivingScatterImage,
+} from "../services/stats/statsImage.js";
 import { log } from "../logging.js";
 
 type StatsFormat = "auto" | "text" | "image";
@@ -518,6 +524,34 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     minimumVolume: board.minimumVolume,
   });
   if (useImageFormat(format, 1 + extraMetrics.length)) {
+    const scatter = receivingScatterConfig(metric);
+    if (scatter) {
+      const cohort = await queryLeaderboard({
+        season,
+        week,
+        position,
+        sort: scatter.x.metric,
+        dir: "desc",
+        limit: 100,
+        scoring,
+        team,
+        minimumVolumeFilter: board.minimumVolume,
+      });
+      const image = renderReceivingScatterImage({
+        cohort: cohort.players,
+        highlights: board.players,
+        season,
+        week,
+        position,
+        metric,
+        scoring,
+        team,
+        minimumVolume: board.minimumVolume,
+      });
+      embed.setImage("attachment://leaders.png");
+      await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "leaders.png" }] });
+      return;
+    }
     const image = renderLeadersImage({
       players: board.players,
       season,

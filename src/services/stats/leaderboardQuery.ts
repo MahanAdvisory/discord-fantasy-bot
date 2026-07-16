@@ -448,6 +448,8 @@ export async function queryLeaderboard(args: {
   scoring?: ScoringPreset;
   /** Overrides the metric's default minimum routes, targets, or snaps. Zero disables it. */
   minVolume?: number | null;
+  /** Reuses an already-resolved volume filter when querying a related cohort. */
+  minimumVolumeFilter?: LeaderboardMinimumVolume | null;
 }): Promise<{
   players: StatsPlayerRow[];
   total: number;
@@ -469,7 +471,9 @@ export async function queryLeaderboard(args: {
   const suppliedMinimum =
     args.minVolume != null && Number.isFinite(args.minVolume) ? Math.min(1_000, Math.max(0, Math.floor(args.minVolume))) : null;
   const minimumVolume =
-    defaultMinimum == null
+    args.minimumVolumeFilter !== undefined
+      ? args.minimumVolumeFilter
+      : defaultMinimum == null
       ? null
       : {
           ...defaultMinimum,

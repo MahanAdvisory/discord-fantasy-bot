@@ -128,11 +128,237 @@ function playerColumnHeader(player: StatsPlayerRow): string {
   return name.length <= 15 ? name : `${name.slice(0, 14)}…`;
 }
 
+type ScatterAxis = {
+  metric: string;
+  label: string;
+  value: (player: StatsPlayerRow) => number | null;
+  percent?: boolean;
+};
+
+export type ReceivingScatterConfig = {
+  x: ScatterAxis;
+  y: ScatterAxis;
+};
+
+const targetAxis: ScatterAxis = {
+  metric: "tgt",
+  label: "Targets",
+  value: (player) => number(player.box.targets),
+};
+const routeAxis: ScatterAxis = {
+  metric: "routes",
+  label: "Routes",
+  value: (player) => number(player.routesRun),
+};
+const targetShareAxis: ScatterAxis = {
+  metric: "tgt_pct",
+  label: "Tgt%",
+  value: (player) => number(player.targetShare),
+  percent: true,
+};
+const yprrAxis: ScatterAxis = {
+  metric: "yprr",
+  label: "YPRR",
+  value: (player) => number(player.yprr),
+};
+
+const receivingRateAxes: Record<string, ScatterAxis> = {
+  tgt_pct: targetShareAxis,
+  tprr: { metric: "tprr", label: "TPRR", value: (player) => number(player.targetsPerRoute), percent: true },
+  yprr: yprrAxis,
+  adot: { metric: "adot", label: "aDOT", value: (player) => number(player.adot) },
+  fd_rr: { metric: "fd_rr", label: "FD/RR", value: (player) => number(player.firstDownsPerRoute) },
+  rec_epa: { metric: "rec_epa", label: "Rec EPA", value: (player) => number(player.receivingEpa) },
+  snap_pct: { metric: "snap_pct", label: "Snap%", value: (player) => number(player.offenseSnapPct), percent: true },
+};
+
+/**
+ * Defines the receiving-only scatter plots used by stats-leaders image output.
+ * Returning null intentionally leaves non-receiving metrics on the table image.
+ */
+export function receivingScatterConfig(metric: string): ReceivingScatterConfig | null {
+  const normalized = metric.toLowerCase();
+  const rateAxis = receivingRateAxes[normalized];
+  if (rateAxis) {
+    return {
+      x: ["yprr", "tprr", "fd_rr"].includes(normalized) ? routeAxis : targetAxis,
+      y: rateAxis,
+    };
+  }
+  if (["tgt", "rec", "rec_yds", "air_yds", "rec_fd"].includes(normalized)) {
+    return { x: targetAxis, y: targetShareAxis };
+  }
+  if (normalized === "routes") return { x: routeAxis, y: yprrAxis };
+  return null;
+}
+
+function abbreviatedName(player: StatsPlayerRow): string {
+  const words = (player.playerName ?? "Player").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return words[0] ?? "Player";
+  const surname = words.filter((word) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(word)).at(-1) ?? words.at(-1)!;
+  return `${words[0]![0]}. ${surname}`;
+}
+
+function scatterAxisText(axis: ScatterAxis, value: number): string {
+  if (axis.percent) return `${Math.round(value * 100)}%`;
+  return axis.metric === "yprr" || axis.metric === "fd_rr" || axis.metric === "rec_epa" || axis.metric === "adot"
+    ? decimal(value, 1)
+    : count(value);
+}
+
+function scatterSubtitle(args: {
+  season: number;
+  week: number | null;
+  scoring: ScoringPreset;
+  team?: string | null;
+  minimumVolume?: { value: number; unit: string } | null;
+}): string {
+  const period = args.week == null ? "Season" : `Week ${args.week}`;
+  return [
+    period,
+    scoringLabel(args.scoring),
+    args.minimumVolume ? `min ${args.minimumVolume.value} ${args.minimumVolume.unit}` : null,
+    args.team ? `${args.team} only` : null,
+  ].filter(Boolean).join(" · ");
+}
+
 function truncate(ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let result = text;
   while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
   return `${result}…`;
+}
+
+export function renderReceivingScatterImage(args: {
+  cohort: StatsPlayerRow[];
+  highlights: StatsPlayerRow[];
+  season: number;
+  week: number | null;
+  position: string;
+  metric: string;
+  scoring: ScoringPreset;
+  team?: string | null;
+  minimumVolume?: { value: number; unit: string } | null;
+}): Buffer {
+  registerFonts();
+  const config = receivingScatterConfig(args.metric);
+  if (!config) throw new Error(`No receiving scatter configuration for ${args.metric}`);
+
+  const points = args.cohort
+    .map((player) => ({ player, x: config.x.value(player), y: config.y.value(player) }))
+    .filter((point): point is { player: StatsPlayerRow; x: number; y: number } => point.x != null && point.y != null);
+  const highlighted = args.highlights
+    .map((player) => ({ player, x: config.x.value(player), y: config.y.value(player) }))
+    .filter((point): point is { player: StatsPlayerRow; x: number; y: number } => point.x != null && point.y != null);
+
+  const width = 1200;
+  const height = 800;
+  const chart = { left: 112, top: 238, right: 1140, bottom: 684 };
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#101724";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#182235";
+  ctx.fillRect(0, 0, width, 180);
+  ctx.fillStyle = "#68d7ff";
+  ctx.fillRect(0, 176, width, 4);
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = font(700, 36);
+  ctx.fillText(`${args.season} ${args.position}${args.team ? ` · ${args.team}` : ""} · ${config.x.label} vs ${config.y.label}`, 42, 58);
+  ctx.fillStyle = "#b9c6da";
+  ctx.font = font(500, 21);
+  ctx.fillText(scatterSubtitle(args), 42, 94);
+  ctx.fillStyle = "#91a4c2";
+  ctx.font = font(400, 17);
+  ctx.fillText(
+    `${points.length} volume-qualified receivers · highlighted: top ${highlighted.length} by ${LEADER_METRIC_LABELS[args.metric] ?? args.metric.toUpperCase()}`,
+    42,
+    126,
+  );
+
+  const allPoints = [...points, ...highlighted];
+  const xMax = Math.max(1, ...allPoints.map((point) => point.x));
+  const yValues = allPoints.map((point) => point.y);
+  const yRawMin = yValues.length ? Math.min(...yValues) : 0;
+  const yRawMax = yValues.length ? Math.max(...yValues) : 1;
+  const yPadding = Math.max((yRawMax - yRawMin) * 0.12, config.y.percent ? 0.02 : 0.1);
+  const yMin = Math.min(config.y.percent || yRawMin >= 0 ? 0 : yRawMin - yPadding, yRawMin - yPadding);
+  const yMax = Math.max(yMin + 1, yRawMax + yPadding);
+  const scaleX = (value: number) => chart.left + (value / xMax) * (chart.right - chart.left);
+  const scaleY = (value: number) => chart.bottom - ((value - yMin) / (yMax - yMin)) * (chart.bottom - chart.top);
+
+  ctx.strokeStyle = "#2b3a55";
+  ctx.lineWidth = 1;
+  ctx.font = font(400, 16);
+  for (let tick = 0; tick <= 5; tick += 1) {
+    const y = chart.top + ((chart.bottom - chart.top) * tick) / 5;
+    const value = yMax - ((yMax - yMin) * tick) / 5;
+    ctx.beginPath();
+    ctx.moveTo(chart.left, y);
+    ctx.lineTo(chart.right, y);
+    ctx.stroke();
+    ctx.fillStyle = "#91a4c2";
+    ctx.textAlign = "right";
+    ctx.fillText(scatterAxisText(config.y, value), chart.left - 14, y + 5);
+  }
+  for (let tick = 0; tick <= 5; tick += 1) {
+    const x = chart.left + ((chart.right - chart.left) * tick) / 5;
+    const value = (xMax * tick) / 5;
+    ctx.beginPath();
+    ctx.moveTo(x, chart.top);
+    ctx.lineTo(x, chart.bottom);
+    ctx.stroke();
+    ctx.fillStyle = "#91a4c2";
+    ctx.textAlign = "center";
+    ctx.fillText(scatterAxisText(config.x, value), x, chart.bottom + 28);
+  }
+  ctx.strokeStyle = "#6f829f";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(chart.left, chart.top);
+  ctx.lineTo(chart.left, chart.bottom);
+  ctx.lineTo(chart.right, chart.bottom);
+  ctx.stroke();
+
+  for (const point of points) {
+    ctx.beginPath();
+    ctx.arc(scaleX(point.x), scaleY(point.y), 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#6d86aa99";
+    ctx.fill();
+  }
+  const usedLabels: Array<{ x: number; y: number }> = [];
+  for (const point of highlighted) {
+    const x = scaleX(point.x);
+    const y = scaleY(point.y);
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#68d7ff";
+    ctx.fill();
+    ctx.strokeStyle = "#e8f7ff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    let labelY = y - 12;
+    while (usedLabels.some((label) => Math.abs(label.x - x) < 80 && Math.abs(label.y - labelY) < 17)) labelY -= 17;
+    usedLabels.push({ x, y: labelY });
+    ctx.fillStyle = "#f4f7fb";
+    ctx.font = font(600, 15);
+    ctx.textAlign = x > chart.right - 95 ? "right" : "left";
+    ctx.fillText(truncate(ctx, abbreviatedName(point.player), 105), x > chart.right - 95 ? x - 10 : x + 10, labelY);
+  }
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#c7d3e6";
+  ctx.font = font(600, 19);
+  ctx.fillText(config.x.label, (chart.left + chart.right) / 2, height - 42);
+  ctx.save();
+  ctx.translate(34, (chart.top + chart.bottom) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(config.y.label, 0, 0);
+  ctx.restore();
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#7f91ad";
+  ctx.font = font(400, 15);
+  ctx.fillText("Data: nflverse / nflfastR · ffopportunity · FTN when present", 42, height - 16);
+  return canvas.toBuffer("image/png");
 }
 
 export function renderLeadersImage(args: {
