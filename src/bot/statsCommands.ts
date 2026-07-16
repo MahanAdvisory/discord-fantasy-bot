@@ -7,6 +7,7 @@ import {
 import {
   autocompletePlayerNames,
   findPlayerStats,
+  findPlayerStatsWindow,
   normalizeNflTeam,
   queryLeaderboard,
   scoringFromOptions,
@@ -15,6 +16,7 @@ import {
   LEADER_METRICS,
   buildPlayerCompareEmbed,
   buildLeadersEmbed,
+  buildMultiYearPlayerStatsEmbed,
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
@@ -33,6 +35,16 @@ export const playerStatsCommand = new SlashCommandBuilder()
     o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
   )
   .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addStringOption((o) =>
+    o
+      .setName("window")
+      .setDescription("Season window ending in the selected season")
+      .addChoices(
+        { name: "1 season", value: "1" },
+        { name: "3 seasons", value: "3" },
+        { name: "5 seasons", value: "5" },
+      ),
+  )
   .addStringOption((o) =>
     o
       .setName("scope")
@@ -196,8 +208,9 @@ export async function handlePlayerStatsAutocomplete(interaction: AutocompleteInt
 export async function handlePlayerStatsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const player = interaction.options.getString("player", true);
   const season = interaction.options.getInteger("season", true);
+  const window = Number(interaction.options.getString("window") ?? "1") as 1 | 3 | 5;
   const weekRaw = interaction.options.getInteger("week");
-  const week = weekRaw != null && weekRaw > 0 ? weekRaw : null;
+  const week = window === 1 && weekRaw != null && weekRaw > 0 ? weekRaw : null;
   const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
   const visibility = interaction.options.getString("visibility");
   const scoring = scoringFromOptions({
@@ -208,6 +221,26 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
   const flags = replyFlags(visibility);
   await interaction.deferReply(flags);
 
+  if (window > 1) {
+    const found = await findPlayerStatsWindow({ playerQuery: player, endSeason: season, years: window === 3 ? 3 : 5, scoring });
+    if (!found) {
+      await interaction.editReply({ content: `No stats found for **${player}** in ${season}.` });
+      return;
+    }
+    const embed = buildMultiYearPlayerStatsEmbed({
+      playerName: found.playerName,
+      playerTeam: found.playerTeam,
+      playerPosition: found.playerPosition,
+      seasons: found.seasons,
+      scope,
+      scoring,
+    });
+    const content = weekRaw != null
+      ? `_Week is ignored when using a ${window}-season window._`
+      : undefined;
+    await interaction.editReply({ content, embeds: [embed] });
+    return;
+  }
   const found = await findPlayerStats({ playerQuery: player, season, week, scoring });
   if (!found) {
     await interaction.editReply({ content: `No stats found for **${player}** in ${season}${week != null ? ` week ${week}` : ""}.` });

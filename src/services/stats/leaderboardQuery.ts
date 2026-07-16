@@ -658,6 +658,56 @@ export async function findPlayerStats(args: {
   };
 }
 
+export async function findPlayerStatsWindow(args: {
+  playerQuery: string;
+  endSeason: number;
+  years: 3 | 5;
+  scoring?: ScoringPreset;
+}): Promise<{
+  playerName: string;
+  playerTeam: string | null;
+  playerPosition: string | null;
+  seasons: Array<{ season: number; player: StatsPlayerRow | null }>;
+  matches: Array<{ name: string; team: string | null; position: string | null }>;
+} | null> {
+  const base = await findPlayerStats({ playerQuery: args.playerQuery, season: args.endSeason, scoring: args.scoring });
+  if (!base) return null;
+  const seasons = Array.from({ length: args.years }, (_, index) => args.endSeason - args.years + index + 1);
+  const position = (base.player.position ?? "FLEX").toUpperCase();
+  const boardPosition = position === "QB" || position === "RB" || position === "WR" || position === "TE" ? position : "FLEX";
+  const results = await Promise.all(
+    seasons.map(async (season) => {
+      if (season === args.endSeason) return { season, player: base.player };
+      const record = await prisma.nflPlayerWeekStat.findFirst({
+        where: {
+          season,
+          grain: "season",
+          week: -1,
+          seasonType: { in: ["REG", "reg", "REG+POST"] },
+          playerKey: base.player.playerKey,
+        },
+      });
+      if (!record) return { season, player: null };
+      const board = await queryLeaderboard({
+        season,
+        week: null,
+        position: boardPosition,
+        sort: "fpts",
+        limit: 400,
+        scoring: args.scoring,
+      });
+      return { season, player: board.players.find((player) => player.playerKey === base.player.playerKey) ?? enrichRow(record, args.scoring ?? DEFAULT_SCORING, new Map()) };
+    }),
+  );
+  return {
+    playerName: base.player.playerName ?? args.playerQuery,
+    playerTeam: base.player.team,
+    playerPosition: base.player.position,
+    seasons: results,
+    matches: base.matches,
+  };
+}
+
 export async function autocompletePlayerNames(args: {
   season: number;
   query: string;

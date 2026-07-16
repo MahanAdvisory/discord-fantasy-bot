@@ -61,6 +61,103 @@ function hasReceiving(p: StatsPlayerRow): boolean {
   );
 }
 
+type StatsMetric = {
+  label: string;
+  kind: "count" | "rate";
+  value: (player: StatsPlayerRow) => number | null;
+  format?: (value: number) => string;
+};
+
+const value = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) ? v : null);
+const integer = (v: number): string => String(Math.round(v));
+
+const SUMMARY_METRICS: StatsMetric[] = [
+  { label: "G", kind: "count", value: (p) => p.games, format: integer },
+  { label: "FPTS", kind: "count", value: (p) => p.fpts },
+  { label: "FPTS/G", kind: "rate", value: (p) => p.fptsPerGame },
+  { label: "xFP", kind: "count", value: (p) => p.xfp },
+  { label: "FPOE", kind: "count", value: (p) => p.fpoe },
+  { label: "VORP", kind: "count", value: (p) => p.vorp },
+  { label: "Start%", kind: "rate", value: (p) => p.startRate, format: (v) => pct(v) },
+];
+const PASSING_METRICS: StatsMetric[] = [
+  { label: "CMP", kind: "count", value: (p) => value(p.box.completions), format: integer },
+  { label: "ATT", kind: "count", value: (p) => value(p.box.attempts), format: integer },
+  { label: "Pass Yds", kind: "count", value: (p) => value(p.box.passingYards), format: integer },
+  { label: "Pass TD", kind: "count", value: (p) => value(p.box.passingTds), format: integer },
+  { label: "INT", kind: "count", value: (p) => value(p.box.interceptions), format: integer },
+];
+const RUSHING_METRICS: StatsMetric[] = [
+  { label: "ATT", kind: "count", value: (p) => value(p.box.carries), format: integer },
+  { label: "Rush Yds", kind: "count", value: (p) => value(p.box.rushingYards), format: integer },
+  { label: "Rush TD", kind: "count", value: (p) => value(p.box.rushingTds), format: integer },
+  { label: "Rush 1D", kind: "count", value: (p) => value(p.box.rushingFirstDowns), format: integer },
+  { label: "FD/Carry", kind: "rate", value: (p) => p.firstDownsPerCarry, format: (v) => n(v, 2) },
+  { label: "Rush EPA", kind: "rate", value: (p) => p.rushingEpa, format: (v) => n(v, 2) },
+];
+const RECEIVING_METRICS: StatsMetric[] = [
+  { label: "TGT", kind: "count", value: (p) => value(p.box.targets), format: integer },
+  { label: "REC", kind: "count", value: (p) => value(p.box.receptions), format: integer },
+  { label: "Rec Yds", kind: "count", value: (p) => value(p.box.receivingYards), format: integer },
+  { label: "Rec TD", kind: "count", value: (p) => value(p.box.receivingTds), format: integer },
+  { label: "Rec 1D", kind: "count", value: (p) => value(p.box.receivingFirstDowns), format: integer },
+  { label: "Tgt%", kind: "rate", value: (p) => p.targetShare, format: (v) => pct(v) },
+  { label: "TPRR", kind: "rate", value: (p) => p.targetsPerRoute, format: (v) => pct(v) },
+  { label: "YPRR", kind: "rate", value: (p) => p.yprr, format: (v) => n(v, 2) },
+  { label: "FD/RR", kind: "rate", value: (p) => p.firstDownsPerRoute, format: (v) => n(v, 2) },
+  { label: "aDOT", kind: "rate", value: (p) => p.adot, format: (v) => n(v, 1) },
+  { label: "Air Yds", kind: "count", value: (p) => p.airYards, format: integer },
+  { label: "YAC", kind: "count", value: (p) => p.yac, format: integer },
+  { label: "Routes", kind: "count", value: (p) => p.routesRun, format: integer },
+  { label: "Snap%", kind: "rate", value: (p) => p.offenseSnapPct, format: (v) => pct(v) },
+];
+
+function metricText(metric: StatsMetric, player: StatsPlayerRow): string {
+  const raw = metric.value(player);
+  return raw == null ? "—" : (metric.format ?? ((v: number) => n(v)))(raw);
+}
+
+function table(rows: Array<{ label: string; values: string[] }>, headers: string[]): string {
+  const widths = [Math.max(6, ...rows.map((row) => row.label.length)), ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length)))];
+  const format = (cells: string[]) => cells.map((cell, i) => cell.padEnd(widths[i]!)).join("  ").trimEnd();
+  return `\`\`\`\n${format(["Metric", ...headers])}\n${rows.map((row) => format([row.label, ...row.values])).join("\n")}\n\`\`\``;
+}
+
+function addTableFields(
+  embed: EmbedBuilder,
+  name: string,
+  rows: Array<{ label: string; values: string[] }>,
+  headers: string[],
+): void {
+  const chunks: Array<Array<{ label: string; values: string[] }>> = [];
+  for (const row of rows) {
+    const chunk = chunks.at(-1) ?? [];
+    if (chunk.length && table([...chunk, row], headers).length > 1_024) chunks.push([row]);
+    else if (chunk.length) chunk.push(row);
+    else chunks.push([row]);
+  }
+  chunks.forEach((chunk, index) => {
+    embed.addFields({ name: chunks.length > 1 ? `${name} (${index + 1}/${chunks.length})` : name, value: table(chunk, headers), inline: false });
+  });
+}
+
+function reportGroups(players: StatsPlayerRow[], scope: PlayerStatsScope): Array<{ name: string; metrics: StatsMetric[] }> {
+  const groups: Array<{ name: string; metrics: StatsMetric[] }> = [];
+  const include = (name: string, metrics: StatsMetric[], present: boolean) => {
+    const available = metrics.filter((metric) => players.some((player) => metric.value(player) != null));
+    if (present && available.length) groups.push({ name, metrics: available });
+  };
+  if (scope === "summary") {
+    include("Summary", SUMMARY_METRICS, true);
+    include("Passing", PASSING_METRICS, players.some(hasPassing));
+    include("Rushing", RUSHING_METRICS, players.some(hasRushing));
+    include("Receiving", RECEIVING_METRICS, players.some(hasReceiving));
+  } else if (scope === "passing") include("Passing", PASSING_METRICS, players.some(hasPassing));
+  else if (scope === "rushing") include("Rushing", RUSHING_METRICS, players.some(hasRushing));
+  else include("Receiving", RECEIVING_METRICS, players.some(hasReceiving));
+  return groups;
+}
+
 export function buildPlayerStatsEmbed(args: {
   player: StatsPlayerRow;
   season: number;
@@ -78,68 +175,11 @@ export function buildPlayerStatsEmbed(args: {
     .setTitle(title)
     .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
     .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
-
-  const lines: string[] = [];
-  if (scope === "receiving" || scope === "summary") {
-    if (scope === "receiving" && hasReceiving(p)) {
-      lines.push(
-        `**REC** ${p.box.receptions ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **TGT** ${p.box.targets ?? 0}`,
-        `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
-        `**Tgt%** ${pct(p.targetShare)} · **TPRR** ${pct(p.targetsPerRoute)} · **YPRR** ${n(p.yprr, 2)}`,
-        `**Rec 1D** ${p.box.receivingFirstDowns ?? "—"} · **FD/RR** ${n(p.firstDownsPerRoute, 2)}`,
-        `**aDOT** ${n(p.adot, 1)} · **Air Yds** ${p.airYards ?? "—"} · **YAC** ${p.yac ?? "—"}`,
-        `**RACR** ${n(p.racr, 2)} · **WOPR** ${n(p.wopr, 2)} · **Rec EPA** ${n(p.receivingEpa, 2)}`,
-        `**Catch%** ${pct(p.catchRate)} · **Routes** ${p.routesRun ?? "—"} · **Route%** ${pct(p.routePct)}`,
-        `**Snaps** ${p.offenseSnaps ?? "—"} · **Snap%** ${pct(p.offenseSnapPct)} · **G** ${p.games}`,
-      );
-    }
+  const groups = reportGroups([p], scope);
+  if (!groups.length) embed.setDescription(`${embed.data.description}\n\n_No ${scope} statistics recorded for this period._`);
+  for (const group of groups) {
+    addTableFields(embed, group.name, group.metrics.map((metric) => ({ label: metric.label, values: [metricText(metric, p)] })), ["Value"]);
   }
-  if (scope === "rushing" && hasRushing(p)) {
-    const ypc =
-      p.box.carries && p.box.carries > 0 && p.box.rushingYards != null
-        ? p.box.rushingYards / p.box.carries
-        : null;
-    lines.push(
-      `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **YPC** ${n(ypc, 2)}`,
-      `**Rush 1D** ${p.box.rushingFirstDowns ?? "—"} · **FD/Carry** ${n(p.firstDownsPerCarry, 2)}`,
-      `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
-      `**Rush EPA** ${n(p.rushingEpa, 2)} · **Snaps** ${p.offenseSnaps ?? "—"} · **Snap%** ${pct(p.offenseSnapPct)} · **G** ${p.games}`,
-    );
-  }
-  if (scope === "passing" && hasPassing(p)) {
-    lines.push(
-      `**CMP/ATT** ${p.box.completions ?? 0}/${p.box.attempts ?? 0} · **YDS** ${p.box.passingYards ?? 0} · **TD** ${p.box.passingTds ?? 0} · **INT** ${p.box.interceptions ?? 0}`,
-      `**FPTS** ${n(p.fpts)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **VORP** ${n(p.vorp)}`,
-      `**G** ${p.games} · **FPTS/G** ${n(p.fptsPerGame)}`,
-    );
-  }
-  if (scope === "summary") {
-    lines.push(
-      `**G** ${p.games} · **FPTS** ${n(p.fpts)} · **FPTS/G** ${n(p.fptsPerGame)} · **VORP** ${n(p.vorp)}`,
-      `**xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **${ownershipRateLabel(p)}** ${pct(p.startRate)}`,
-    );
-    if (hasPassing(p)) {
-      lines.push(
-        `Pass: ${p.box.completions ?? 0}/${p.box.attempts ?? 0}, ${p.box.passingYards ?? 0} yds, ${p.box.passingTds ?? 0} TD, ${p.box.interceptions ?? 0} INT`,
-      );
-    }
-    if (hasRushing(p)) {
-      lines.push(
-        `Rush: ${p.box.carries ?? 0} att, ${p.box.rushingYards ?? 0} yds, ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)} · EPA ${n(p.rushingEpa, 2)}`,
-      );
-    }
-    if (hasReceiving(p)) {
-      lines.push(
-        `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0}, ${p.box.receivingYards ?? 0} yds, ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
-        `Total 1D ${p.firstDowns ?? "—"} · Tgt% ${pct(p.targetShare)} · TPRR ${pct(p.targetsPerRoute)} · YPRR ${n(p.yprr, 2)} · aDOT ${n(p.adot, 1)} · Rec EPA ${n(p.receivingEpa, 2)}`,
-      );
-    }
-  }
-
-  if (lines.length === 0) {
-    lines.push(`_No ${scope} statistics recorded for this period._`);
-  }
-  embed.setDescription(discordText(`${embed.data.description}\n\n${lines.join("\n")}`, 4_096));
   return embed;
 }
 
@@ -273,53 +313,53 @@ export function buildPlayerCompareEmbed(args: {
     .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
     .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
 
-  const showPassing = players.some(hasPassing);
-  const showRushing = players.some(hasRushing);
-  const showReceiving = players.some(hasReceiving);
-
-  for (const p of players) {
-    const lines = [
-      `**G** ${p.games} · **FPTS** ${n(p.fpts)} · **FPTS/G** ${n(p.fptsPerGame)} · **xFP** ${n(p.xfp)} · **FPOE** ${n(p.fpoe)} · **${ownershipRateLabel(p)}** ${pct(p.startRate)}`,
-    ];
-    if (scope === "passing" && showPassing) {
-      lines.push(
-        `**CMP/ATT** ${p.box.completions ?? 0}/${p.box.attempts ?? 0} · **YDS** ${p.box.passingYards ?? 0} · **TD** ${p.box.passingTds ?? 0} · **INT** ${p.box.interceptions ?? 0}`,
-      );
-    } else if (scope === "rushing" && showRushing) {
-      lines.push(
-        `**ATT** ${p.box.carries ?? 0} · **YDS** ${p.box.rushingYards ?? 0} · **TD** ${p.box.rushingTds ?? 0} · **1D** ${p.box.rushingFirstDowns ?? "—"} · **FD/Carry** ${n(p.firstDownsPerCarry, 2)} · **EPA** ${n(p.rushingEpa, 2)}`,
-      );
-    } else if (scope === "receiving" && showReceiving) {
-      lines.push(
-        `**REC/TGT** ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · **YDS** ${p.box.receivingYards ?? 0} · **TD** ${p.box.receivingTds ?? 0} · **1D** ${p.box.receivingFirstDowns ?? "—"} · **FD/RR** ${n(p.firstDownsPerRoute, 2)}`,
-        `**Tgt%** ${pct(p.targetShare)} · **TPRR** ${pct(p.targetsPerRoute)} · **YPRR** ${n(p.yprr, 2)}`,
-      );
-    } else {
-      if (scope === "summary") {
-        if (showPassing) {
-          lines.push(`Pass: ${p.box.passingYards ?? 0} yds · ${p.box.passingTds ?? 0} TD · ${p.box.interceptions ?? 0} INT`);
-        }
-        if (showRushing) {
-          lines.push(
-            `Rush: ${p.box.carries ?? 0} att · ${p.box.rushingYards ?? 0} yds · ${p.box.rushingTds ?? 0} TD · ${p.box.rushingFirstDowns ?? "—"} 1D · FD/Carry ${n(p.firstDownsPerCarry, 2)}`,
-          );
-        }
-        if (showReceiving) {
-          lines.push(
-            `Rec: ${p.box.receptions ?? 0}/${p.box.targets ?? 0} · ${p.box.receivingYards ?? 0} yds · ${p.box.receivingTds ?? 0} TD · ${p.box.receivingFirstDowns ?? "—"} 1D · FD/RR ${n(p.firstDownsPerRoute, 2)}`,
-          );
-        }
-        if (showRushing || showReceiving) {
-          lines.push(`Total first downs: ${p.firstDowns ?? "—"}`);
-        }
-      }
-    }
-    embed.addFields({
-      name: discordText(`${p.playerName ?? "Player"}${p.team ? ` (${p.team})` : ""}${p.position ? ` · ${p.position}` : ""}`, 256),
-      value: discordText(lines.join("\n"), 1_024),
-      inline: false,
-    });
+  const headers = players.map((p) => discordText(p.playerName ?? "Player", 14));
+  const details = players
+    .map((p) => `${p.playerName ?? "Player"}${p.team ? ` (${p.team}` : ""}${p.position ? ` ${p.position}` : ""}${p.team ? ")" : ""}`)
+    .join(" · ");
+  embed.setDescription(discordText(`${embed.data.description}\n${details}`, 4_096));
+  for (const group of reportGroups(players, scope)) {
+    addTableFields(embed, group.name, group.metrics.map((metric) => ({ label: metric.label, values: players.map((player) => metricText(metric, player)) })), headers);
   }
+  if (!embed.data.fields?.length) embed.setDescription(`${embed.data.description}\n\n_No ${scope} statistics recorded for this period._`);
+  return embed;
+}
+
+export function buildMultiYearPlayerStatsEmbed(args: {
+  playerName: string;
+  playerTeam: string | null;
+  playerPosition: string | null;
+  seasons: Array<{ season: number; player: StatsPlayerRow | null }>;
+  scope: PlayerStatsScope;
+  scoring: ScoringPreset;
+}): EmbedBuilder {
+  const { playerName, playerTeam, playerPosition, seasons, scope, scoring } = args;
+  const players = seasons.flatMap((entry) => (entry.player ? [entry.player] : []));
+  const embed = new EmbedBuilder()
+    .setTitle(discordText(`${playerName}${playerTeam ? ` (${playerTeam})` : ""}${playerPosition ? ` · ${playerPosition}` : ""}`, 256))
+    .setDescription(`**${scope.toUpperCase()}** · ${seasons[0]!.season}–${seasons.at(-1)!.season}\n_Scoring: ${scoringLabel(scoring)}_`)
+    .setFooter({ text: "17G = combined seasonal totals ÷ combined G × 17; rate metrics show Avg only · Data: nflverse / nflfastR" });
+  const headers = [...seasons.map((entry) => String(entry.season)), "Avg", "17G Avg"];
+  for (const group of reportGroups(players, scope)) {
+    const rows = group.metrics.map((metric) => {
+      const values = seasons.map((entry) => (entry.player ? metricText(metric, entry.player) : "—"));
+      const available = seasons.flatMap((entry) => {
+        const raw = entry.player ? metric.value(entry.player) : null;
+        return raw == null ? [] : [{ raw, games: entry.player!.games }];
+      });
+      const average = available.length ? available.reduce((sum, entry) => sum + entry.raw, 0) / available.length : null;
+      const totalGames = available.reduce((sum, entry) => sum + entry.games, 0);
+      const seventeenGame = metric.kind === "count" && totalGames > 0
+        ? (available.reduce((sum, entry) => sum + entry.raw, 0) / totalGames) * 17
+        : null;
+      return {
+        label: metric.label,
+        values: [...values, average == null ? "—" : (metric.format ?? ((v: number) => n(v)))(average), seventeenGame == null ? "—" : (metric.format ?? ((v: number) => n(v)))(seventeenGame)],
+      };
+    });
+    if (rows.length) addTableFields(embed, group.name, rows, headers);
+  }
+  if (!embed.data.fields?.length) embed.setDescription(`${embed.data.description}\n\n_No ${scope} statistics recorded in this window._`);
   return embed;
 }
 
