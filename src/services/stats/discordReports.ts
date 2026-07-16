@@ -154,9 +154,13 @@ function formatMetricValue(metric: StatsMetric, raw: number): string {
 }
 
 function table(rows: Array<{ label: string; values: string[] }>, headers: string[]): string {
-  const widths = [Math.max(...rows.map((row) => row.label.length)), ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length)))];
+  const widths = [
+    Math.max(...rows.map((row) => row.label.length)),
+    ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length))),
+  ];
+  // One space between right-aligned cols: readable columns without the wide left-pad tables.
   const format = ([label, ...values]: string[]) =>
-    `${label.padEnd(widths[0]!)} ${values.map((cell, i) => cell.padStart(widths[i + 1]!)).join("")}`.trimEnd();
+    `${label.padEnd(widths[0]!)} ${values.map((cell, i) => cell.padStart(widths[i + 1]!)).join(" ")}`.trimEnd();
   return `\`\`\`\n${format(["", ...headers])}\n${rows.map((row) => format([row.label, ...row.values])).join("\n")}\n\`\`\``;
 }
 
