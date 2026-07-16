@@ -71,6 +71,7 @@ const PASS: Metric[] = [
 const RUSH: Metric[] = [
   { label: "Att", value: (p) => number(p.box.carries), format: count },
   { label: "Yds", value: (p) => number(p.box.rushingYards), format: count },
+  { label: "YPC", value: (p) => p.yardsPerCarry, format: (v) => decimal(v, 2) },
   { label: "TD", value: (p) => number(p.box.rushingTds), format: count },
   { label: "1D", value: (p) => number(p.box.rushingFirstDowns), format: count },
   { label: "FD/C", value: (p) => p.firstDownsPerCarry, format: (v) => decimal(v, 2) },
@@ -184,6 +185,11 @@ const firstDownsPerCarryAxis: ScatterAxis = {
   label: "FD/Carry",
   value: (player) => number(player.firstDownsPerCarry),
 };
+const ypcAxis: ScatterAxis = {
+  metric: "ypc",
+  label: "YPC",
+  value: (player) => number(player.yardsPerCarry),
+};
 const ypaAxis: ScatterAxis = {
   metric: "ypa",
   label: "YPA",
@@ -218,15 +224,18 @@ export function leadersScatterConfig(metric: string): LeadersScatterConfig | nul
     return { x: targetAxis, y: targetShareAxis };
   }
   if (normalized === "routes") return { x: routeAxis, y: yprrAxis };
-  if (["rush_epa", "fd_carry"].includes(normalized)) {
+  if (["rush_epa", "fd_carry", "ypc"].includes(normalized)) {
     return {
       x: carryAxis,
       y: normalized === "rush_epa"
         ? { metric: "rush_epa", label: "Rush EPA", value: (player) => number(player.rushingEpa) }
-        : firstDownsPerCarryAxis,
+        : normalized === "ypc"
+          ? ypcAxis
+          : firstDownsPerCarryAxis,
     };
   }
-  if (["rush_yds", "rush_fd"].includes(normalized)) return { x: carryAxis, y: firstDownsPerCarryAxis };
+  if (normalized === "att") return { x: carryAxis, y: ypcAxis };
+  if (["rush_yds", "rush_fd"].includes(normalized)) return { x: carryAxis, y: ypcAxis };
   if (normalized === "pass_yds") return { x: passAttemptAxis, y: ypaAxis };
   return null;
 }
@@ -243,7 +252,7 @@ function abbreviatedName(player: StatsPlayerRow): string {
 
 function scatterAxisText(axis: ScatterAxis, value: number): string {
   if (axis.percent) return `${Math.round(value * 100)}%`;
-  return ["yprr", "fd_rr", "fd_carry", "rec_epa", "rush_epa", "adot", "ypa"].includes(axis.metric)
+  return ["yprr", "fd_rr", "fd_carry", "ypc", "rec_epa", "rush_epa", "adot", "ypa"].includes(axis.metric)
     ? decimal(value, 1)
     : count(value);
 }
@@ -685,7 +694,7 @@ function seventeenGameMetric(metric: Metric, players: StatsPlayerRow[]): string 
   const values = players
     .map((player) => ({ value: metric.value(player), games: player.games }))
     .filter((entry): entry is { value: number; games: number } => entry.value != null && Number.isFinite(entry.value) && entry.games > 0);
-  if (!values.length || metric.label.includes("%") || ["FPG", "FD/C", "EPA", "TPRR", "YPRR", "aDOT", "Start%"].includes(metric.label)) return "—";
+  if (!values.length || metric.label.includes("%") || ["FPG", "FD/C", "YPC", "EPA", "TPRR", "YPRR", "aDOT", "Start%"].includes(metric.label)) return "—";
   const projected = (values.reduce((sum, entry) => sum + entry.value, 0) / values.reduce((sum, entry) => sum + entry.games, 0)) * 17;
   return (metric.format ?? ((value: number) => decimal(value)))(projected);
 }

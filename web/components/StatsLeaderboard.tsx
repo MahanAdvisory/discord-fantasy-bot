@@ -31,6 +31,7 @@ type LeaderboardPlayer = {
   receivingEpa: number | null;
   firstDowns: number | null;
   firstDownsPerCarry: number | null;
+  yardsPerCarry: number | null;
   firstDownsPerRoute: number | null;
   startRate: number | null;
   startRateSource: string | null;
@@ -87,6 +88,7 @@ type SortKey =
   | "rush_fd"
   | "rec_fd"
   | "fd_carry"
+  | "ypc"
   | "fd_rr"
   | "pass_yds"
   | "pass_td"
@@ -115,6 +117,7 @@ type SortKey =
 const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "G", meaning: "Games played" },
   { abbr: "ATT", meaning: "Rushing attempts (carries)" },
+  { abbr: "YPC", meaning: "Yards per carry (rushing yards ÷ carries)" },
   { abbr: "1D", meaning: "Total first downs (rushing + receiving)" },
   { abbr: "Rush 1D", meaning: "Rushing first downs" },
   { abbr: "FD/Carry", meaning: "Rushing first downs ÷ carries" },
@@ -426,6 +429,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                     <>
                       <SortTh id="att">ATT</SortTh>
                       <SortTh id="rush_yds">Rush Yds</SortTh>
+                      <SortTh id="ypc">YPC</SortTh>
                       <SortTh id="rush_td">Rush TD</SortTh>
                       <SortTh id="rush_fd">Rush 1D</SortTh>
                       <SortTh id="fd_carry">FD/Carry</SortTh>
@@ -487,6 +491,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                       <>
                         <td className="px-3 py-2">{p.box.carries ?? 0}</td>
                         <td className="px-3 py-2">{p.box.rushingYards ?? 0}</td>
+                        <td className="px-3 py-2">{num(p.yardsPerCarry, 2)}</td>
                         <td className="px-3 py-2">{p.box.rushingTds ?? 0}</td>
                         <td className="px-3 py-2">{p.box.rushingFirstDowns ?? "—"}</td>
                         <td className="px-3 py-2">{num(p.firstDownsPerCarry, 2)}</td>

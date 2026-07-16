@@ -41,6 +41,7 @@ const SORT_FIELDS = new Set([
   "rush_fd",
   "rec_fd",
   "fd_carry",
+  "ypc",
   "fd_rr",
   "pass_yds",
   "pass_td",
@@ -67,7 +68,7 @@ const SORT_FIELDS = new Set([
 ]);
 
 const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr", "fd_rr"]);
-const CARRY_RATE_METRICS = new Set(["fd_carry"]);
+const CARRY_RATE_METRICS = new Set(["fd_carry", "ypc"]);
 
 function defaultMinimumVolume(sort: string, week: number | null): { value: number; unit: "carries" | "routes" } | null {
   if (CARRY_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "carries" };
@@ -133,9 +134,10 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return Number((row.box as Record<string, number | null> | undefined)?.rushingTds) || -Infinity;
     case "fd":
     case "fd_carry":
+    case "ypc":
     case "fd_rr":
-      return typeof row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : "firstDownsPerRoute"] === "number"
-        ? (row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : "firstDownsPerRoute"] as number)
+      return typeof row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : sort === "ypc" ? "yardsPerCarry" : "firstDownsPerRoute"] === "number"
+        ? (row[sort === "fd" ? "firstDowns" : sort === "fd_carry" ? "firstDownsPerCarry" : sort === "ypc" ? "yardsPerCarry" : "firstDownsPerRoute"] as number)
         : -Infinity;
     case "rush_fd":
       return Number((row.box as Record<string, number | null> | undefined)?.rushingFirstDowns) || -Infinity;
@@ -266,6 +268,8 @@ export async function GET(req: Request) {
     const firstDowns = r.rushingFirstDowns != null || r.receivingFirstDowns != null ? rushingFirstDowns + receivingFirstDowns : null;
     const firstDownsPerCarry =
       r.carries != null && r.carries > 0 && r.rushingFirstDowns != null ? Math.round((r.rushingFirstDowns / r.carries) * 100) / 100 : null;
+    const yardsPerCarry =
+      r.carries != null && r.carries > 0 && r.rushingYards != null ? Math.round((r.rushingYards / r.carries) * 100) / 100 : null;
     const firstDownsPerRoute =
       routesRun != null && routesRun > 0 && r.receivingFirstDowns != null
         ? Math.round((r.receivingFirstDowns / routesRun) * 100) / 100
@@ -301,6 +305,7 @@ export async function GET(req: Request) {
       receivingEpa: r.receivingEpa ?? null,
       firstDowns,
       firstDownsPerCarry,
+      yardsPerCarry,
       firstDownsPerRoute,
       rushingYardsExp: r.rushingYardsExp,
       startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),

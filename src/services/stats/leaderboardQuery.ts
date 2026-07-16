@@ -95,6 +95,7 @@ export type LeaderboardSortKey =
   | "rush_fd"
   | "rec_fd"
   | "fd_carry"
+  | "ypc"
   | "fd_rr"
   | "pass_yds"
   | "pass_att"
@@ -128,7 +129,7 @@ export type LeaderboardMinimumVolume = {
 };
 
 const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr", "fd_rr"]);
-const CARRY_RATE_METRICS = new Set(["fd_carry"]);
+const CARRY_RATE_METRICS = new Set(["fd_carry", "ypc"]);
 const TARGET_RATE_METRICS = new Set(["catch_pct", "adot"]);
 const SNAP_RATE_METRICS = new Set(["snap_pct"]);
 
@@ -177,6 +178,7 @@ export type StatsPlayerRow = {
   receivingEpa: number | null;
   firstDowns: number | null;
   firstDownsPerCarry: number | null;
+  yardsPerCarry: number | null;
   firstDownsPerRoute: number | null;
   startRate: number | null;
   startRateSource: string | null;
@@ -283,6 +285,8 @@ function sortValue(row: StatsPlayerRow, sort: string): number | string {
       return row.box.receivingFirstDowns ?? -Infinity;
     case "fd_carry":
       return row.firstDownsPerCarry ?? -Infinity;
+    case "ypc":
+      return row.yardsPerCarry ?? -Infinity;
     case "fd_rr":
       return row.firstDownsPerRoute ?? -Infinity;
     case "pass_yds":
@@ -380,6 +384,8 @@ function enrichRow(
   const firstDowns = r.rushingFirstDowns != null || r.receivingFirstDowns != null ? rushingFirstDowns + receivingFirstDowns : null;
   const firstDownsPerCarry =
     r.carries != null && r.carries > 0 && r.rushingFirstDowns != null ? Math.round((r.rushingFirstDowns / r.carries) * 100) / 100 : null;
+  const yardsPerCarry =
+    r.carries != null && r.carries > 0 && r.rushingYards != null ? Math.round((r.rushingYards / r.carries) * 100) / 100 : null;
   const firstDownsPerRoute =
     routesRun != null && routesRun > 0 && r.receivingFirstDowns != null
       ? Math.round((r.receivingFirstDowns / routesRun) * 100) / 100
@@ -415,6 +421,7 @@ function enrichRow(
     receivingEpa: r.receivingEpa ?? null,
     firstDowns,
     firstDownsPerCarry,
+    yardsPerCarry,
     firstDownsPerRoute,
     startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),
     startRateSource: sr?.source ?? (r.fantasyProsRosterPct != null ? "fantasypros_fallback" : null),

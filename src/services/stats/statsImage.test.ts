@@ -30,15 +30,15 @@ test("receiving volume metrics chart target share or YPRR", () => {
 });
 
 test("rushing and passing metrics use carry and pass-attempt axes", () => {
-  for (const metric of ["rush_epa", "fd_carry"]) {
+  for (const metric of ["rush_epa", "fd_carry", "ypc"]) {
     const config = leadersScatterConfig(metric);
     assert.equal(config?.x.metric, "att");
     assert.equal(config?.y.metric, metric);
   }
-  for (const metric of ["rush_yds", "rush_fd"]) {
+  for (const metric of ["rush_yds", "rush_fd", "att"]) {
     const config = leadersScatterConfig(metric);
     assert.equal(config?.x.metric, "att");
-    assert.equal(config?.y.metric, "fd_carry");
+    assert.equal(config?.y.metric, "ypc");
   }
   const passing = leadersScatterConfig("pass_yds");
   assert.equal(passing?.x.metric, "pass_att");
@@ -46,7 +46,7 @@ test("rushing and passing metrics use carry and pass-attempt axes", () => {
 });
 
 test("legacy receiving config remains an alias", () => {
-  assert.equal(receivingScatterConfig("rush_yds")?.y.metric, "fd_carry");
+  assert.equal(receivingScatterConfig("rush_yds")?.y.metric, "ypc");
 });
 
 test("fantasy metrics retain the table image", () => {

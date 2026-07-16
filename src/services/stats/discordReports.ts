@@ -89,6 +89,7 @@ const TABLE_METRIC_LABELS = {
   interceptions: "INT",
   firstDowns: "1D",
   firstDownsPerCarry: "FD/C",
+  yardsPerCarry: "YPC",
   epa: "EPA",
   targets: "Tgt",
   receptions: "Rec",
@@ -122,6 +123,7 @@ const PASSING_METRICS: StatsMetric[] = [
 const RUSHING_METRICS: StatsMetric[] = [
   { label: TABLE_METRIC_LABELS.attempts, kind: "count", value: (p) => value(p.box.carries), format: integer },
   { label: TABLE_METRIC_LABELS.yards, kind: "count", value: (p) => value(p.box.rushingYards), format: integer },
+  { label: TABLE_METRIC_LABELS.yardsPerCarry, kind: "rate", value: (p) => p.yardsPerCarry, format: (v) => n(v, 2) },
   { label: TABLE_METRIC_LABELS.touchdowns, kind: "count", value: (p) => value(p.box.rushingTds), format: integer },
   { label: TABLE_METRIC_LABELS.firstDowns, kind: "count", value: (p) => value(p.box.rushingFirstDowns), format: integer },
   { label: TABLE_METRIC_LABELS.firstDownsPerCarry, kind: "rate", value: (p) => p.firstDownsPerCarry, format: (v) => n(v, 2) },
@@ -271,7 +273,8 @@ export const LEADER_METRIC_LABELS: Record<string, string> = {
   adot: "aDOT",
   rec_epa: "Rec EPA",
   rush_epa: "Rush EPA",
-  fd: "First Downs",
+  att: "Carries",
+  ypc: "YPC",
   rush_fd: "Rush First Downs",
   rec_fd: "Rec First Downs",
   fd_carry: "FD/Carry",
@@ -318,6 +321,8 @@ export function formatLeaderMetricValue(p: StatsPlayerRow, metric: string): stri
       return String(p.box.receivingFirstDowns ?? "—");
     case "fd_carry":
       return n(p.firstDownsPerCarry, 2);
+    case "ypc":
+      return n(p.yardsPerCarry, 2);
     case "fd_rr":
       return n(p.firstDownsPerRoute, 2);
     case "tgt":
@@ -328,6 +333,8 @@ export function formatLeaderMetricValue(p: StatsPlayerRow, metric: string): stri
       return String(p.box.receivingYards ?? 0);
     case "rush_yds":
       return String(p.box.rushingYards ?? 0);
+    case "att":
+      return String(p.box.carries ?? 0);
     case "pass_yds":
       return String(p.box.passingYards ?? 0);
     case "air_yds":
@@ -460,9 +467,10 @@ export const LEADER_METRICS = [
   { name: "aDOT", value: "adot" },
   { name: "Rec EPA", value: "rec_epa" },
   { name: "Rush EPA", value: "rush_epa" },
-  { name: "First Downs", value: "fd" },
+  { name: "Carries", value: "att" },
   { name: "Rush First Downs", value: "rush_fd" },
   { name: "Rec First Downs", value: "rec_fd" },
+  { name: "YPC", value: "ypc" },
   { name: "FD/Carry", value: "fd_carry" },
   { name: "FD/RR", value: "fd_rr" },
   { name: "Targets", value: "tgt" },
