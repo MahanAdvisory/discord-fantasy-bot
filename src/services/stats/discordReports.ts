@@ -4,12 +4,14 @@ import type { LeaderboardMinimumVolume, StatsPlayerRow } from "./leaderboardQuer
 
 function n(v: number | null | undefined, digits = 1): string {
   if (v == null || !Number.isFinite(v)) return "—";
-  return v.toFixed(digits);
+  return v
+    .toFixed(digits)
+    .replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1");
 }
 
 function pct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
-  return `${(v * 100).toFixed(1)}%`;
+  return `${Math.round(v * 100)}%`;
 }
 
 function scoringLabel(s: ScoringPreset): string {
@@ -144,12 +146,17 @@ const RECEIVING_METRICS: StatsMetric[] = [
 
 function metricText(metric: StatsMetric, player: StatsPlayerRow): string {
   const raw = metric.value(player);
-  return raw == null ? "—" : (metric.format ?? ((v: number) => n(v)))(raw);
+  return raw == null ? "—" : formatMetricValue(metric, raw);
+}
+
+function formatMetricValue(metric: StatsMetric, raw: number): string {
+  return (metric.format ?? (metric.kind === "count" ? integer : (v: number) => n(v)))(raw);
 }
 
 function table(rows: Array<{ label: string; values: string[] }>, headers: string[]): string {
   const widths = [Math.max(...rows.map((row) => row.label.length)), ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length)))];
-  const format = (cells: string[]) => cells.map((cell, i) => cell.padEnd(widths[i]!)).join(" ").trimEnd();
+  const format = ([label, ...values]: string[]) =>
+    `${label.padEnd(widths[0]!)} ${values.map((cell, i) => cell.padStart(widths[i + 1]!)).join("")}`.trimEnd();
   return `\`\`\`\n${format(["", ...headers])}\n${rows.map((row) => format([row.label, ...row.values])).join("\n")}\n\`\`\``;
 }
 
@@ -402,10 +409,11 @@ export function buildMultiYearPlayerStatsEmbed(args: {
     .setDescription(
       `**${scope.toUpperCase()}** · ${seasons[0]!.season}–${seasons.at(-1)!.season}\n` +
       `_Scoring: ${scoringLabel(scoring)}_\n` +
+      `_Av = average · 17 = combined totals ÷ combined G × 17 (rates use Av only)_\n` +
       `**Seasons:** ${seasons.map((entry) => `${String(entry.season).slice(-2)}=${entry.season}`).join(" · ")}`,
     )
-    .setFooter({ text: "17G = combined seasonal totals ÷ combined G × 17; rate metrics show Avg only · Data: nflverse / nflfastR" });
-  const headers = [...seasons.map((entry) => String(entry.season).slice(-2)), "Avg", "17G"];
+    .setFooter({ text: "Data: nflverse / nflfastR" });
+  const headers = [...seasons.map((entry) => String(entry.season).slice(-2)), "Av", "17"];
   for (const group of reportGroups(players, scope)) {
     const rows = group.metrics.map((metric) => {
       const values = seasons.map((entry) => (entry.player ? metricText(metric, entry.player) : "—"));
@@ -420,7 +428,7 @@ export function buildMultiYearPlayerStatsEmbed(args: {
         : null;
       return {
         label: metric.label,
-        values: [...values, average == null ? "—" : (metric.format ?? ((v: number) => n(v)))(average), seventeenGame == null ? "—" : (metric.format ?? ((v: number) => n(v)))(seventeenGame)],
+        values: [...values, average == null ? "—" : formatMetricValue(metric, average), seventeenGame == null ? "—" : formatMetricValue(metric, seventeenGame)],
       };
     });
     if (rows.length) addTableFields(embed, group.name, rows, headers);
