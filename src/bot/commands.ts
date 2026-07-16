@@ -482,7 +482,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/player-stats` — receiving / rushing / passing / summary; choose Auto, text, or image format",
       "• `/player-stats-mobile` — a phone-friendly PNG stats card",
       "• `/player-compare` — compare two or three players side-by-side; choose Auto, text, or image format",
-      "• `/stats-leaders` — top-N by FPTS, FPOE, VORP, Tgt%, …",
+      "• `/stats-leaders` — top-N by a selected metric; add up to three display stats and choose Auto, text, or image format",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
     return;

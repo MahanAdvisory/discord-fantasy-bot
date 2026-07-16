@@ -21,7 +21,7 @@ import {
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
-import { renderPlayerCompareImage, renderPlayerStatsImage } from "../services/stats/statsImage.js";
+import { renderLeadersImage, renderPlayerCompareImage, renderPlayerStatsImage } from "../services/stats/statsImage.js";
 import { log } from "../logging.js";
 
 type StatsFormat = "auto" | "text" | "image";
@@ -173,6 +173,24 @@ export const statsLeadersCommand = new SlashCommandBuilder()
       ),
   )
   .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addStringOption((o) =>
+    o
+      .setName("extra_1")
+      .setDescription("Optional additional stat to display")
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("extra_2")
+      .setDescription("Optional additional stat to display")
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("extra_3")
+      .setDescription("Optional additional stat to display")
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
+  )
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week; omit for full season"))
   .addIntegerOption((o) =>
     o
@@ -202,6 +220,12 @@ export const statsLeadersCommand = new SlashCommandBuilder()
       .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
   )
   .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
+  .addStringOption((o) =>
+    o
+      .setName("format")
+      .setDescription("Output format (Auto uses image for more than 2 metrics)")
+      .addChoices({ name: "Auto", value: "auto" }, { name: "Text", value: "text" }, { name: "Image", value: "image" }),
+  )
   .addStringOption((o) =>
     o
       .setName("visibility")
@@ -450,6 +474,11 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
   const minVolume = interaction.options.getInteger("min_volume");
   const teamRaw = interaction.options.getString("team");
   const team = teamRaw ? normalizeNflTeam(teamRaw) : null;
+  const extraMetrics = ["extra_1", "extra_2", "extra_3"]
+    .map((name) => interaction.options.getString(name))
+    .filter((candidate): candidate is string => candidate != null && candidate !== metric)
+    .filter((candidate, index, metrics) => metrics.indexOf(candidate) === index);
+  const format = (interaction.options.getString("format") ?? "auto") as StatsFormat;
   const visibility = interaction.options.getString("visibility");
   const scoring = scoringFromOptions({
     scoring: interaction.options.getString("scoring"),
@@ -483,10 +512,28 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     week,
     position,
     metric,
+    extraMetrics,
     scoring,
     team,
     minimumVolume: board.minimumVolume,
   });
+  if (useImageFormat(format, 1 + extraMetrics.length)) {
+    const image = renderLeadersImage({
+      players: board.players,
+      season,
+      week,
+      position,
+      metric,
+      extraMetrics,
+      scoring,
+      team,
+      minimumVolume: board.minimumVolume,
+    });
+    embed.setImage("attachment://leaders.png");
+    embed.setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scoring.receptions.replace("_", " ")} · ${1 + extraMetrics.length} displayed metric${extraMetrics.length ? "s" : ""}`);
+    await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "leaders.png" }] });
+    return;
+  }
   await interaction.editReply({ embeds: [embed] });
 }
 

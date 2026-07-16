@@ -4,7 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ScoringPreset } from "../../domain/fantasyScoring.js";
 import type { StatsPlayerRow } from "./leaderboardQuery.js";
-import type { PlayerStatsScope } from "./discordReports.js";
+import {
+  formatLeaderMetricValue,
+  LEADER_METRIC_LABELS,
+  type PlayerStatsScope,
+} from "./discordReports.js";
 
 type Metric = {
   label: string;
@@ -122,6 +126,102 @@ function rowValue(metric: Metric, player: StatsPlayerRow | null): string {
 function playerColumnHeader(player: StatsPlayerRow): string {
   const name = (player.playerName ?? "Player").trim();
   return name.length <= 15 ? name : `${name.slice(0, 14)}…`;
+}
+
+function truncate(ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let result = text;
+  while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
+  return `${result}…`;
+}
+
+export function renderLeadersImage(args: {
+  players: StatsPlayerRow[];
+  season: number;
+  week: number | null;
+  position: string;
+  metric: string;
+  extraMetrics?: string[];
+  scoring: ScoringPreset;
+  team?: string | null;
+  minimumVolume?: { value: number; unit: string } | null;
+}): Buffer {
+  registerFonts();
+  const { players, season, week, position, metric, extraMetrics = [], scoring, team, minimumVolume } = args;
+  const metrics = [metric, ...extraMetrics.filter((candidate) => candidate !== metric)]
+    .filter((candidate, index, values) => values.indexOf(candidate) === index);
+  const width = 1200;
+  const height = Math.max(300, 210 + players.length * 42 + 54);
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  const period = week == null ? `${season} season` : `${season} · Week ${week}`;
+
+  ctx.fillStyle = "#101724";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#182235";
+  ctx.fillRect(0, 0, width, 150);
+  ctx.fillStyle = "#68d7ff";
+  ctx.fillRect(0, 146, width, 4);
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = font(700, 36);
+  ctx.fillText(`Top ${players.length} ${team ? `${team} ` : ""}${position}`, 42, 56);
+  ctx.fillStyle = "#b9c6da";
+  ctx.font = font(500, 22);
+  ctx.fillText(`BY ${LEADER_METRIC_LABELS[metric] ?? metric.toUpperCase()}`, 42, 90);
+  ctx.fillStyle = "#91a4c2";
+  ctx.font = font(400, 19);
+  ctx.fillText(`${period} · ${scoringLabel(scoring)}`, 42, 122);
+
+  const rankX = 52;
+  const playerX = 112;
+  const metricsStartX = 505;
+  const metricWidth = (width - metricsStartX - 42) / metrics.length;
+  let y = 188;
+  ctx.fillStyle = "#24324b";
+  ctx.fillRect(34, y - 27, width - 68, 36);
+  ctx.fillStyle = "#68d7ff";
+  ctx.font = font(700, 17);
+  ctx.fillText("RANK", rankX, y - 3);
+  ctx.fillText("PLAYER", playerX, y - 3);
+  ctx.fillStyle = "#c7d3e6";
+  ctx.textAlign = "right";
+  metrics.forEach((displayMetric, index) => {
+    ctx.fillText(
+      LEADER_METRIC_LABELS[displayMetric] ?? displayMetric.toUpperCase(),
+      metricsStartX + metricWidth * (index + 1) - 8,
+      y - 3,
+    );
+  });
+  ctx.textAlign = "left";
+  y += 34;
+  players.forEach((player, index) => {
+    if (index % 2 === 0) {
+      ctx.fillStyle = "#151f30";
+      ctx.fillRect(34, y - 25, width - 68, 38);
+    }
+    ctx.fillStyle = "#68d7ff";
+    ctx.font = font(700, 19);
+    ctx.fillText(String(index + 1), rankX, y);
+    ctx.fillStyle = "#dce6f5";
+    ctx.font = font(500, 20);
+    const playerLabel = `${player.playerName ?? "?"}${player.team ? ` (${player.team})` : ""}${player.position ? ` ${player.position}` : ""}`;
+    ctx.fillText(truncate(ctx, playerLabel, metricsStartX - playerX - 18), playerX, y);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = font(600, 20);
+    ctx.textAlign = "right";
+    metrics.forEach((displayMetric, metricIndex) => {
+      ctx.fillText(formatLeaderMetricValue(player, displayMetric), metricsStartX + metricWidth * (metricIndex + 1) - 8, y);
+    });
+    ctx.textAlign = "left";
+    y += 42;
+  });
+  ctx.fillStyle = "#7f91ad";
+  ctx.font = font(400, 16);
+  const footer = "Data: nflverse / nflfastR · ffopportunity · FTN when present" +
+    (minimumVolume ? ` · min ${minimumVolume.value} ${minimumVolume.unit}` : "") +
+    (team ? ` · ${team} filter` : "");
+  ctx.fillText(truncate(ctx, footer, width - 84), 42, height - 28);
+  return canvas.toBuffer("image/png");
 }
 
 export function renderPlayerStatsImage(args: {

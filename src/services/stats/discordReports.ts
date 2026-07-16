@@ -259,7 +259,7 @@ export function buildPlayerStatsEmbed(args: {
   return embed;
 }
 
-const METRIC_LABELS: Record<string, string> = {
+export const LEADER_METRIC_LABELS: Record<string, string> = {
   fpts: "FPTS",
   fpts_g: "FPTS/G",
   xfp: "xFP",
@@ -286,7 +286,7 @@ const METRIC_LABELS: Record<string, string> = {
   snap_pct: "Snap%",
 };
 
-function metricValue(p: StatsPlayerRow, metric: string): string {
+export function formatLeaderMetricValue(p: StatsPlayerRow, metric: string): string {
   switch (metric) {
     case "fpts":
       return n(p.fpts);
@@ -348,19 +348,26 @@ export function buildLeadersEmbed(args: {
   position: string;
   metric: string;
   scoring: ScoringPreset;
+  extraMetrics?: string[];
   team?: string | null;
   minimumVolume?: LeaderboardMinimumVolume | null;
 }): EmbedBuilder {
-  const { players, season, week, position, metric, scoring, team, minimumVolume } = args;
+  const { players, season, week, position, metric, scoring, extraMetrics = [], team, minimumVolume } = args;
   const when = week == null ? `${season} season` : `${season} W${week}`;
-  const label = METRIC_LABELS[metric] ?? metric.toUpperCase();
+  const label = LEADER_METRIC_LABELS[metric] ?? metric.toUpperCase();
+  const displayedMetrics = [metric, ...extraMetrics.filter((candidate) => candidate !== metric)]
+    .filter((candidate, index, metrics) => metrics.indexOf(candidate) === index);
   const lines: string[] = [];
   for (const [i, p] of players.entries()) {
     const playerLabel = discordText(
-      `${p.playerName ?? "?"}${p.team ? ` (${p.team})` : ""}${p.position && (position === "FLEX" || position === "SUPERFLEX") ? ` ${p.position}` : ""}`,
+      `${p.playerName ?? "?"}${p.team ? ` (${p.team})` : ""}${p.position ? ` ${p.position}` : ""}`,
       100,
     );
-    const line = `**${i + 1}.** ${playerLabel} — **${metricValue(p, metric)}** · ${n(p.fpts)} FPTS`;
+    const values = displayedMetrics.map((displayMetric, metricIndex) => {
+      const value = `${formatLeaderMetricValue(p, displayMetric)} ${LEADER_METRIC_LABELS[displayMetric] ?? displayMetric.toUpperCase()}`;
+      return metricIndex === 0 ? `**${value}**` : value;
+    });
+    const line = `**${i + 1}.** ${playerLabel} — ${values.join(" · ")}`;
     if (lines.join("\n").length + line.length + 1 > 3_800) break;
     lines.push(line);
   }
