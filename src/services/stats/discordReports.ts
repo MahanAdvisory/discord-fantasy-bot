@@ -273,10 +273,12 @@ export const LEADER_METRIC_LABELS: Record<string, string> = {
   adot: "aDOT",
   rec_epa: "Rec EPA",
   rush_epa: "Rush EPA",
+  fd: "First Downs",
   att: "Carries",
   ypc: "YPC",
   rush_fd: "Rush First Downs",
   rec_fd: "Rec First Downs",
+  rush_td: "Rush TD",
   fd_carry: "FD/Carry",
   fd_rr: "FD/RR",
   tgt: "Targets",
@@ -333,6 +335,8 @@ export function formatLeaderMetricValue(p: StatsPlayerRow, metric: string): stri
       return String(p.box.receivingYards ?? 0);
     case "rush_yds":
       return String(p.box.rushingYards ?? 0);
+    case "rush_td":
+      return String(p.box.rushingTds ?? 0);
     case "att":
       return String(p.box.carries ?? 0);
     case "pass_yds":
@@ -467,10 +471,12 @@ export const LEADER_METRICS = [
   { name: "aDOT", value: "adot" },
   { name: "Rec EPA", value: "rec_epa" },
   { name: "Rush EPA", value: "rush_epa" },
+  { name: "First Downs", value: "fd" },
   { name: "Carries", value: "att" },
   { name: "Rush First Downs", value: "rush_fd" },
   { name: "Rec First Downs", value: "rec_fd" },
   { name: "YPC", value: "ypc" },
+  { name: "Rush TD", value: "rush_td" },
   { name: "FD/Carry", value: "fd_carry" },
   { name: "FD/RR", value: "fd_rr" },
   { name: "Targets", value: "tgt" },
@@ -482,3 +488,5 @@ export const LEADER_METRICS = [
   { name: "Routes", value: "routes" },
   { name: "Snap%", value: "snap_pct" },
 ] as const;
+
+export const LEADER_METRIC_VALUES = new Set<string>(LEADER_METRICS.map((m) => m.value));
