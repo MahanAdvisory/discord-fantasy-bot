@@ -1,5 +1,6 @@
 import {
   ChatInputCommandInteraction,
+  EmbedBuilder,
   MessageFlags,
   SlashCommandBuilder,
   type AutocompleteInteraction,
@@ -20,6 +21,7 @@ import {
   buildPlayerStatsEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
+import { renderPlayerStatsImage } from "../services/stats/statsImage.js";
 import { log } from "../logging.js";
 
 function replyFlags(visibility: string | null): { flags?: MessageFlags.Ephemeral } {
@@ -31,6 +33,59 @@ function replyFlags(visibility: string | null): { flags?: MessageFlags.Ephemeral
 export const playerStatsCommand = new SlashCommandBuilder()
   .setName("player-stats")
   .setDescription("nflverse fantasy stats for one player (receiving / rushing / passing / summary)")
+  .addStringOption((o) =>
+    o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
+  )
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addStringOption((o) =>
+    o
+      .setName("window")
+      .setDescription("Season window ending in the selected season")
+      .addChoices(
+        { name: "1 season", value: "1" },
+        { name: "3 seasons", value: "3" },
+        { name: "5 seasons", value: "5" },
+      ),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("scope")
+      .setDescription("Which stat package to show")
+      .addChoices(
+        { name: "Receiving", value: "receiving" },
+        { name: "Rushing", value: "rushing" },
+        { name: "Passing", value: "passing" },
+        { name: "Summary", value: "summary" },
+      ),
+  )
+  .addIntegerOption((o) => o.setName("week").setDescription("Optional week number; omit for full season"))
+  .addStringOption((o) =>
+    o
+      .setName("scoring")
+      .setDescription("Reception scoring")
+      .addChoices(
+        { name: "PPR", value: "ppr" },
+        { name: "Half PPR", value: "half_ppr" },
+        { name: "Standard", value: "standard" },
+      ),
+  )
+  .addIntegerOption((o) =>
+    o
+      .setName("pass_td")
+      .setDescription("Passing TD points")
+      .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
+  )
+  .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
+  .addStringOption((o) =>
+    o
+      .setName("visibility")
+      .setDescription("Where to post the reply (defaults to this channel)")
+      .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
+  );
+
+export const playerStatsMobileCommand = new SlashCommandBuilder()
+  .setName("player-stats-mobile")
+  .setDescription("Mobile-friendly PNG player stats card")
   .addStringOption((o) =>
     o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
   )
@@ -262,6 +317,75 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
     content = `_Showing best match. Also matched: ${others}_`;
   }
   await interaction.editReply({ content, embeds: [embed] });
+}
+
+export async function handlePlayerStatsMobileCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const player = interaction.options.getString("player", true);
+  const season = interaction.options.getInteger("season", true);
+  const window = Number(interaction.options.getString("window") ?? "1") as 1 | 3 | 5;
+  const weekRaw = interaction.options.getInteger("week");
+  const week = window === 1 && weekRaw != null && weekRaw > 0 ? weekRaw : null;
+  const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
+  const scoring = scoringFromOptions({
+    scoring: interaction.options.getString("scoring"),
+    passTd: interaction.options.getInteger("pass_td"),
+    tePremium: interaction.options.getBoolean("te_premium"),
+  });
+  await interaction.deferReply(replyFlags(interaction.options.getString("visibility")));
+
+  if (window > 1) {
+    const found = await findPlayerStatsWindow({
+      playerQuery: player,
+      endSeason: season,
+      years: window === 3 ? 3 : 5,
+      scoring,
+    });
+    if (!found) {
+      await interaction.editReply({ content: `No stats found for **${player}** in ${season}.` });
+      return;
+    }
+    const image = renderPlayerStatsImage({
+      playerName: found.playerName,
+      playerTeam: found.playerTeam,
+      playerPosition: found.playerPosition,
+      seasons: found.seasons,
+      scope,
+      scoring,
+    });
+    const embed = new EmbedBuilder()
+      .setTitle(`${found.playerName} — mobile stats`)
+      .setDescription(`${window}-season window ending ${season} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
+      .setImage("attachment://stats.png");
+    await interaction.editReply({
+      content: weekRaw != null ? `_Week is ignored when using a ${window}-season window._` : undefined,
+      embeds: [embed],
+      files: [{ attachment: image, name: "stats.png" }],
+    });
+    return;
+  }
+
+  const found = await findPlayerStats({ playerQuery: player, season, week, scoring });
+  if (!found) {
+    await interaction.editReply({ content: `No stats found for **${player}** in ${season}${week != null ? ` week ${week}` : ""}.` });
+    return;
+  }
+  const image = renderPlayerStatsImage({
+    playerName: found.player.playerName ?? player,
+    playerTeam: found.player.team,
+    playerPosition: found.player.position,
+    seasons: [{ season, player: found.player }],
+    scope,
+    scoring,
+    week,
+  });
+  const embed = new EmbedBuilder()
+    .setTitle(`${found.player.playerName ?? player} — mobile stats`)
+    .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
+    .setImage("attachment://stats.png");
+  const content = found.matches.length > 1
+    ? `_Showing best match. Also matched: ${found.matches.slice(0, 5).map((match) => `${match.name}${match.team ? ` (${match.team})` : ""}`).join(", ")}_`
+    : undefined;
+  await interaction.editReply({ content, embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
 }
 
 export async function handleStatsLeadersCommand(interaction: ChatInputCommandInteraction): Promise<void> {

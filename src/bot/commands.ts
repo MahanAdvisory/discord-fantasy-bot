@@ -43,7 +43,12 @@ import {
   resolveLineupLeagueIdsForUser,
   runLineupCheckAcrossLeagues,
 } from "../services/lineupCheck.js";
-import { playerCompareCommand, playerStatsCommand, statsLeadersCommand } from "./statsCommands.js";
+import {
+  playerCompareCommand,
+  playerStatsCommand,
+  playerStatsMobileCommand,
+  statsLeadersCommand,
+} from "./statsCommands.js";
 
 /**
  * Discord now expects `contexts` + `integration_types` on slash commands. Without them, newer apps
@@ -202,6 +207,7 @@ const slashCommandBuilders = [
         .setDescription("Optional league id for replay reset scope; omit to reset all leagues"),
     ),
   playerStatsCommand,
+  playerStatsMobileCommand,
   statsLeadersCommand,
   playerCompareCommand,
 ];
@@ -303,6 +309,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     commandName !== "draft-status" &&
     commandName !== "poll-now" &&
     commandName !== "player-stats" &&
+    commandName !== "player-stats-mobile" &&
     commandName !== "stats-leaders" &&
     commandName !== "player-compare"
   ) {
@@ -473,6 +480,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/subscribe-espn` / `/unsubscribe-espn` — manage ESPN routes",
       "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
       "• `/player-stats` — receiving / rushing / passing / summary (channel or private)",
+      "• `/player-stats-mobile` — a phone-friendly PNG stats card",
       "• `/player-compare` — compare two or three players side-by-side",
       "• `/stats-leaders` — top-N by FPTS, FPOE, VORP, Tgt%, …",
     ];
@@ -663,6 +671,12 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   if (commandName === "player-stats") {
     const { handlePlayerStatsCommand } = await import("./statsCommands.js");
     await handlePlayerStatsCommand(interaction);
+    return;
+  }
+
+  if (commandName === "player-stats-mobile") {
+    const { handlePlayerStatsMobileCommand } = await import("./statsCommands.js");
+    await handlePlayerStatsMobileCommand(interaction);
     return;
   }
 
