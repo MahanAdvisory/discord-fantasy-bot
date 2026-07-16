@@ -15,7 +15,6 @@ import {
 } from "../services/stats/leaderboardQuery.js";
 import {
   LEADER_METRICS,
-  LEADER_METRIC_VALUES,
   buildPlayerCompareEmbed,
   buildLeadersEmbed,
   buildMultiYearPlayerStatsEmbed,
@@ -161,9 +160,9 @@ export const statsLeadersCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o
       .setName("metric")
-      .setDescription("Leaderboard metric (type to search)")
+      .setDescription("Leaderboard metric")
       .setRequired(true)
-      .setAutocomplete(true),
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
   )
   .addStringOption((o) =>
     o
@@ -184,19 +183,19 @@ export const statsLeadersCommand = new SlashCommandBuilder()
     o
       .setName("extra_1")
       .setDescription("Optional additional stat to display")
-      .setAutocomplete(true),
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
   )
   .addStringOption((o) =>
     o
       .setName("extra_2")
       .setDescription("Optional additional stat to display")
-      .setAutocomplete(true),
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
   )
   .addStringOption((o) =>
     o
       .setName("extra_3")
       .setDescription("Optional additional stat to display")
-      .setAutocomplete(true),
+      .addChoices(...LEADER_METRICS.map((m) => ({ name: m.name, value: m.value }))),
   )
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week; omit for full season"))
   .addIntegerOption((o) =>
@@ -295,16 +294,6 @@ export const playerCompareCommand = new SlashCommandBuilder()
 
 export async function handlePlayerStatsAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  if (interaction.commandName === "stats-leaders" && ["metric", "extra_1", "extra_2", "extra_3"].includes(focused.name)) {
-    const query = String(focused.value ?? "").toLowerCase().trim();
-    const choices = LEADER_METRICS.filter(
-      (m) => !query || m.name.toLowerCase().includes(query) || m.value.toLowerCase().includes(query),
-    )
-      .slice(0, 25)
-      .map((m) => ({ name: m.name, value: m.value }));
-    await interaction.respond(choices);
-    return;
-  }
   if (!["player", "player_1", "player_2", "player_3"].includes(focused.name)) {
     await interaction.respond([]);
     return;
@@ -503,14 +492,6 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     tePremium: interaction.options.getBoolean("te_premium"),
   });
   const flags = replyFlags(visibility);
-  const unknownMetric = [metric, ...extraMetrics].find((m) => !LEADER_METRIC_VALUES.has(m));
-  if (unknownMetric) {
-    await interaction.reply({
-      content: `Unknown metric \`${unknownMetric}\`. Use autocomplete on **metric** to pick a valid stat.`,
-      ...flags,
-    });
-    return;
-  }
   if (teamRaw && !team) {
     await interaction.reply({
       content: `Unknown NFL team \`${teamRaw}\`. Use a team code such as \`KC\`, \`SF\`, or \`BUF\`.`,

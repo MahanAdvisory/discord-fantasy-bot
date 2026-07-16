@@ -68,8 +68,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (
         interaction.commandName === "player-stats" ||
         interaction.commandName === "player-stats-mobile" ||
-        interaction.commandName === "player-compare" ||
-        interaction.commandName === "stats-leaders"
+        interaction.commandName === "player-compare"
       ) {
         await handlePlayerStatsAutocomplete(interaction);
       }
