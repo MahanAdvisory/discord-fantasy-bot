@@ -71,45 +71,75 @@ type StatsMetric = {
 const value = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) ? v : null);
 const integer = (v: number): string => String(Math.round(v));
 
+/** Discord table labels: each remains at five characters or fewer. */
+const TABLE_METRIC_LABELS = {
+  games: "G",
+  fpts: "FPTS",
+  fptsPerGame: "FPG",
+  xfp: "xFP",
+  fpoe: "FPOE",
+  vorp: "VORP",
+  startRate: "Start",
+  completions: "Cmp",
+  attempts: "Att",
+  yards: "Yds",
+  touchdowns: "TD",
+  interceptions: "INT",
+  firstDowns: "1D",
+  firstDownsPerCarry: "FD/C",
+  epa: "EPA",
+  targets: "Tgt",
+  receptions: "Rec",
+  targetShare: "Tgt%",
+  targetsPerRoute: "TPRR",
+  yprr: "YPRR",
+  firstDownsPerRoute: "FD/RR",
+  adot: "aDOT",
+  airYards: "Air",
+  yac: "YAC",
+  routes: "Rts",
+  snapRate: "Snap%",
+} as const;
+
 const SUMMARY_METRICS: StatsMetric[] = [
-  { label: "G", kind: "count", value: (p) => p.games, format: integer },
-  { label: "FPTS", kind: "count", value: (p) => p.fpts },
-  { label: "FPTS/G", kind: "rate", value: (p) => p.fptsPerGame },
-  { label: "xFP", kind: "count", value: (p) => p.xfp },
-  { label: "FPOE", kind: "count", value: (p) => p.fpoe },
-  { label: "VORP", kind: "count", value: (p) => p.vorp },
-  { label: "Start%", kind: "rate", value: (p) => p.startRate, format: (v) => pct(v) },
+  { label: TABLE_METRIC_LABELS.games, kind: "count", value: (p) => p.games, format: integer },
+  { label: TABLE_METRIC_LABELS.fpts, kind: "count", value: (p) => p.fpts },
+  { label: TABLE_METRIC_LABELS.fptsPerGame, kind: "rate", value: (p) => p.fptsPerGame },
+  { label: TABLE_METRIC_LABELS.xfp, kind: "count", value: (p) => p.xfp },
+  { label: TABLE_METRIC_LABELS.fpoe, kind: "count", value: (p) => p.fpoe },
+  { label: TABLE_METRIC_LABELS.vorp, kind: "count", value: (p) => p.vorp },
+  { label: TABLE_METRIC_LABELS.startRate, kind: "rate", value: (p) => p.startRate, format: (v) => pct(v) },
 ];
 const PASSING_METRICS: StatsMetric[] = [
-  { label: "CMP", kind: "count", value: (p) => value(p.box.completions), format: integer },
-  { label: "ATT", kind: "count", value: (p) => value(p.box.attempts), format: integer },
-  { label: "Pass Yds", kind: "count", value: (p) => value(p.box.passingYards), format: integer },
-  { label: "Pass TD", kind: "count", value: (p) => value(p.box.passingTds), format: integer },
-  { label: "INT", kind: "count", value: (p) => value(p.box.interceptions), format: integer },
+  { label: TABLE_METRIC_LABELS.completions, kind: "count", value: (p) => value(p.box.completions), format: integer },
+  { label: TABLE_METRIC_LABELS.attempts, kind: "count", value: (p) => value(p.box.attempts), format: integer },
+  { label: TABLE_METRIC_LABELS.yards, kind: "count", value: (p) => value(p.box.passingYards), format: integer },
+  { label: TABLE_METRIC_LABELS.touchdowns, kind: "count", value: (p) => value(p.box.passingTds), format: integer },
+  { label: TABLE_METRIC_LABELS.interceptions, kind: "count", value: (p) => value(p.box.interceptions), format: integer },
 ];
 const RUSHING_METRICS: StatsMetric[] = [
-  { label: "ATT", kind: "count", value: (p) => value(p.box.carries), format: integer },
-  { label: "Rush Yds", kind: "count", value: (p) => value(p.box.rushingYards), format: integer },
-  { label: "Rush TD", kind: "count", value: (p) => value(p.box.rushingTds), format: integer },
-  { label: "Rush 1D", kind: "count", value: (p) => value(p.box.rushingFirstDowns), format: integer },
-  { label: "FD/Carry", kind: "rate", value: (p) => p.firstDownsPerCarry, format: (v) => n(v, 2) },
-  { label: "Rush EPA", kind: "rate", value: (p) => p.rushingEpa, format: (v) => n(v, 2) },
+  { label: TABLE_METRIC_LABELS.attempts, kind: "count", value: (p) => value(p.box.carries), format: integer },
+  { label: TABLE_METRIC_LABELS.yards, kind: "count", value: (p) => value(p.box.rushingYards), format: integer },
+  { label: TABLE_METRIC_LABELS.touchdowns, kind: "count", value: (p) => value(p.box.rushingTds), format: integer },
+  { label: TABLE_METRIC_LABELS.firstDowns, kind: "count", value: (p) => value(p.box.rushingFirstDowns), format: integer },
+  { label: TABLE_METRIC_LABELS.firstDownsPerCarry, kind: "rate", value: (p) => p.firstDownsPerCarry, format: (v) => n(v, 2) },
+  { label: TABLE_METRIC_LABELS.epa, kind: "rate", value: (p) => p.rushingEpa, format: (v) => n(v, 2) },
 ];
 const RECEIVING_METRICS: StatsMetric[] = [
-  { label: "TGT", kind: "count", value: (p) => value(p.box.targets), format: integer },
-  { label: "REC", kind: "count", value: (p) => value(p.box.receptions), format: integer },
-  { label: "Rec Yds", kind: "count", value: (p) => value(p.box.receivingYards), format: integer },
-  { label: "Rec TD", kind: "count", value: (p) => value(p.box.receivingTds), format: integer },
-  { label: "Rec 1D", kind: "count", value: (p) => value(p.box.receivingFirstDowns), format: integer },
-  { label: "Tgt%", kind: "rate", value: (p) => p.targetShare, format: (v) => pct(v) },
-  { label: "TPRR", kind: "rate", value: (p) => p.targetsPerRoute, format: (v) => pct(v) },
-  { label: "YPRR", kind: "rate", value: (p) => p.yprr, format: (v) => n(v, 2) },
-  { label: "FD/RR", kind: "rate", value: (p) => p.firstDownsPerRoute, format: (v) => n(v, 2) },
-  { label: "aDOT", kind: "rate", value: (p) => p.adot, format: (v) => n(v, 1) },
-  { label: "Air Yds", kind: "count", value: (p) => p.airYards, format: integer },
-  { label: "YAC", kind: "count", value: (p) => p.yac, format: integer },
-  { label: "Routes", kind: "count", value: (p) => p.routesRun, format: integer },
-  { label: "Snap%", kind: "rate", value: (p) => p.offenseSnapPct, format: (v) => pct(v) },
+  { label: TABLE_METRIC_LABELS.targets, kind: "count", value: (p) => value(p.box.targets), format: integer },
+  { label: TABLE_METRIC_LABELS.receptions, kind: "count", value: (p) => value(p.box.receptions), format: integer },
+  { label: TABLE_METRIC_LABELS.yards, kind: "count", value: (p) => value(p.box.receivingYards), format: integer },
+  { label: TABLE_METRIC_LABELS.touchdowns, kind: "count", value: (p) => value(p.box.receivingTds), format: integer },
+  { label: TABLE_METRIC_LABELS.firstDowns, kind: "count", value: (p) => value(p.box.receivingFirstDowns), format: integer },
+  { label: TABLE_METRIC_LABELS.targetShare, kind: "rate", value: (p) => p.targetShare, format: (v) => pct(v) },
+  { label: TABLE_METRIC_LABELS.targetsPerRoute, kind: "rate", value: (p) => p.targetsPerRoute, format: (v) => pct(v) },
+  { label: TABLE_METRIC_LABELS.yprr, kind: "rate", value: (p) => p.yprr, format: (v) => n(v, 2) },
+  { label: TABLE_METRIC_LABELS.firstDownsPerRoute, kind: "rate", value: (p) => p.firstDownsPerRoute, format: (v) => n(v, 2) },
+  { label: TABLE_METRIC_LABELS.adot, kind: "rate", value: (p) => p.adot, format: (v) => n(v, 1) },
+  { label: TABLE_METRIC_LABELS.airYards, kind: "count", value: (p) => p.airYards, format: integer },
+  { label: TABLE_METRIC_LABELS.yac, kind: "count", value: (p) => p.yac, format: integer },
+  { label: TABLE_METRIC_LABELS.routes, kind: "count", value: (p) => p.routesRun, format: integer },
+  { label: TABLE_METRIC_LABELS.snapRate, kind: "rate", value: (p) => p.offenseSnapPct, format: (v) => pct(v) },
 ];
 
 function metricText(metric: StatsMetric, player: StatsPlayerRow): string {
@@ -118,9 +148,44 @@ function metricText(metric: StatsMetric, player: StatsPlayerRow): string {
 }
 
 function table(rows: Array<{ label: string; values: string[] }>, headers: string[]): string {
-  const widths = [Math.max(6, ...rows.map((row) => row.label.length)), ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length)))];
-  const format = (cells: string[]) => cells.map((cell, i) => cell.padEnd(widths[i]!)).join("  ").trimEnd();
-  return `\`\`\`\n${format(["Metric", ...headers])}\n${rows.map((row) => format([row.label, ...row.values])).join("\n")}\n\`\`\``;
+  const widths = [Math.max(...rows.map((row) => row.label.length)), ...headers.map((header, i) => Math.max(header.length, ...rows.map((row) => row.values[i]!.length)))];
+  const format = (cells: string[]) => cells.map((cell, i) => cell.padEnd(widths[i]!)).join(" ").trimEnd();
+  return `\`\`\`\n${format(["", ...headers])}\n${rows.map((row) => format([row.label, ...row.values])).join("\n")}\n\`\`\``;
+}
+
+const PLAYER_NICKNAMES: Record<string, string> = {
+  ezekiel: "Zeke",
+};
+
+function playerHeaderBase(player: StatsPlayerRow): string {
+  const words = (player.playerName ?? "Player").trim().split(/\s+/);
+  const firstName = words[0]!.toLowerCase();
+  if (PLAYER_NICKNAMES[firstName]) return PLAYER_NICKNAMES[firstName]!;
+  const surname = [...words].reverse().find((word) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(word)) ?? words[words.length - 1]!;
+  return surname.replace(/[^a-z]/gi, "").slice(0, 4) || "Player";
+}
+
+function playerHeaders(players: StatsPlayerRow[]): string[] {
+  const bases = players.map(playerHeaderBase);
+  return bases.map((base, index) => {
+    if (bases.filter((other) => other.toLowerCase() === base.toLowerCase()).length === 1) return base;
+    const words = (players[index]!.playerName ?? "Player").trim().split(/\s+/);
+    const disambiguated = `${words[0]![0] ?? ""}${base.slice(0, 3)}`;
+    const matching = bases.filter((other, otherIndex) =>
+      otherIndex !== index && `${(players[otherIndex]!.playerName ?? "Player").trim()[0] ?? ""}${other.slice(0, 3)}`.toLowerCase() === disambiguated.toLowerCase(),
+    );
+    return matching.length ? `${base.slice(0, 3)}${index + 1}` : disambiguated;
+  });
+}
+
+function playerLegend(players: StatsPlayerRow[], headers: string[]): string {
+  return headers
+    .map((header, index) => {
+      const player = players[index]!;
+      const detail = `${player.playerName ?? "Player"}${player.team ? ` (${player.team})` : ""}${player.position ? ` ${player.position}` : ""}`;
+      return `${header} = ${detail}`;
+    })
+    .join(" · ");
 }
 
 function addTableFields(
@@ -313,11 +378,8 @@ export function buildPlayerCompareEmbed(args: {
     .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
     .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
 
-  const headers = players.map((p) => discordText(p.playerName ?? "Player", 14));
-  const details = players
-    .map((p) => `${p.playerName ?? "Player"}${p.team ? ` (${p.team}` : ""}${p.position ? ` ${p.position}` : ""}${p.team ? ")" : ""}`)
-    .join(" · ");
-  embed.setDescription(discordText(`${embed.data.description}\n${details}`, 4_096));
+  const headers = playerHeaders(players);
+  embed.setDescription(discordText(`${embed.data.description}\n**Legend:** ${playerLegend(players, headers)}`, 4_096));
   for (const group of reportGroups(players, scope)) {
     addTableFields(embed, group.name, group.metrics.map((metric) => ({ label: metric.label, values: players.map((player) => metricText(metric, player)) })), headers);
   }
@@ -337,9 +399,13 @@ export function buildMultiYearPlayerStatsEmbed(args: {
   const players = seasons.flatMap((entry) => (entry.player ? [entry.player] : []));
   const embed = new EmbedBuilder()
     .setTitle(discordText(`${playerName}${playerTeam ? ` (${playerTeam})` : ""}${playerPosition ? ` · ${playerPosition}` : ""}`, 256))
-    .setDescription(`**${scope.toUpperCase()}** · ${seasons[0]!.season}–${seasons.at(-1)!.season}\n_Scoring: ${scoringLabel(scoring)}_`)
+    .setDescription(
+      `**${scope.toUpperCase()}** · ${seasons[0]!.season}–${seasons.at(-1)!.season}\n` +
+      `_Scoring: ${scoringLabel(scoring)}_\n` +
+      `**Seasons:** ${seasons.map((entry) => `${String(entry.season).slice(-2)}=${entry.season}`).join(" · ")}`,
+    )
     .setFooter({ text: "17G = combined seasonal totals ÷ combined G × 17; rate metrics show Avg only · Data: nflverse / nflfastR" });
-  const headers = [...seasons.map((entry) => String(entry.season)), "Avg", "17G Avg"];
+  const headers = [...seasons.map((entry) => String(entry.season).slice(-2)), "Avg", "17G"];
   for (const group of reportGroups(players, scope)) {
     const rows = group.metrics.map((metric) => {
       const values = seasons.map((entry) => (entry.player ? metricText(metric, entry.player) : "—"));
