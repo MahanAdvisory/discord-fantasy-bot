@@ -227,6 +227,62 @@ export function scoringFromOptions(opts: {
   return { ...DEFAULT_SCORING, receptions, passTd, tePremium };
 }
 
+/**
+ * Season target share as player targets ÷ team targets in games the player appeared.
+ * nflverse season rollups can use full-season team targets (including missed games);
+ * this recomputes from weekly rows so Tgt% reflects opportunity while the player played.
+ */
+export function targetShareFromWeeklyTargets(
+  weeks: Array<{ playerKey: string; team: string | null; week: number; targets: number | null }>,
+): Map<string, number> {
+  const teamWeekTargets = new Map<string, number>();
+  for (const row of weeks) {
+    if (!row.team) continue;
+    const key = `${row.team}|${row.week}`;
+    teamWeekTargets.set(key, (teamWeekTargets.get(key) ?? 0) + (row.targets ?? 0));
+  }
+
+  const agg = new Map<string, { targets: number; available: number }>();
+  for (const row of weeks) {
+    if (!row.team) continue;
+    const available = teamWeekTargets.get(`${row.team}|${row.week}`) ?? 0;
+    if (available <= 0) continue;
+    const cur = agg.get(row.playerKey) ?? { targets: 0, available: 0 };
+    cur.targets += row.targets ?? 0;
+    cur.available += available;
+    agg.set(row.playerKey, cur);
+  }
+
+  const out = new Map<string, number>();
+  for (const [playerKey, { targets, available }] of agg) {
+    if (available > 0) out.set(playerKey, Math.round((targets / available) * 1000) / 1000);
+  }
+  return out;
+}
+
+export async function seasonTargetShareByPlayerKey(season: number): Promise<Map<string, number>> {
+  const weeks = await prisma.nflPlayerWeekStat.findMany({
+    where: {
+      season,
+      grain: "week",
+      week: { gt: 0 },
+      seasonType: { in: ["REG", "reg", "REG+POST"] },
+    },
+    select: { playerKey: true, team: true, week: true, targets: true },
+  });
+  return targetShareFromWeeklyTargets(weeks);
+}
+
+function applySeasonTargetShares<T extends { playerKey: string; targetShare: number | null }>(
+  rows: T[],
+  shares: Map<string, number>,
+): void {
+  for (const row of rows) {
+    const share = shares.get(row.playerKey);
+    if (share != null) row.targetShare = share;
+  }
+}
+
 function sortValue(row: StatsPlayerRow, sort: string): number | string {
   switch (sort) {
     case "fpts_g":
@@ -517,6 +573,9 @@ export async function queryLeaderboard(args: {
       : new Map<string, { startRate: number; source: string }>();
 
   const scored = rows.map((r) => enrichRow(r, preset, startRates));
+  if (grain === "season") {
+    applySeasonTargetShares(scored, await seasonTargetShareByPlayerKey(args.season));
+  }
   scored.sort((a, b) => b.fpts - a.fpts);
   const startCount = POS_START_COUNT[position] ?? 2;
 

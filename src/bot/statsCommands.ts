@@ -15,6 +15,7 @@ import {
 } from "../services/stats/leaderboardQuery.js";
 import {
   LEADER_METRICS,
+  applyStatsSourceFooter,
   buildPlayerCompareEmbed,
   buildLeadersEmbed,
   buildMultiYearPlayerStatsEmbed,
@@ -347,6 +348,7 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
         .setTitle(`${found.playerName} — stats`)
         .setDescription(`${window}-season window ending ${season} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
         .setImage("attachment://stats.png");
+      applyStatsSourceFooter(embed);
       await interaction.editReply({ content, embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
       return;
     }
@@ -388,6 +390,7 @@ export async function handlePlayerStatsCommand(interaction: ChatInputCommandInte
       .setTitle(`${found.player.playerName ?? player} — stats`)
       .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
       .setImage("attachment://stats.png");
+    applyStatsSourceFooter(embed);
     await interaction.editReply({ content, embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
     return;
   }
@@ -438,6 +441,7 @@ export async function handlePlayerStatsMobileCommand(interaction: ChatInputComma
       .setTitle(`${found.playerName} — mobile stats`)
       .setDescription(`${window}-season window ending ${season} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
       .setImage("attachment://stats.png");
+    applyStatsSourceFooter(embed);
     await interaction.editReply({
       content: weekRaw != null ? `_Week is ignored when using a ${window}-season window._` : undefined,
       embeds: [embed],
@@ -464,6 +468,7 @@ export async function handlePlayerStatsMobileCommand(interaction: ChatInputComma
     .setTitle(`${found.player.playerName ?? player} — mobile stats`)
     .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
     .setImage("attachment://stats.png");
+  applyStatsSourceFooter(embed);
   const content = found.matches.length > 1
     ? `_Showing best match. Also matched: ${found.matches.slice(0, 5).map((match) => `${match.name}${match.team ? ` (${match.team})` : ""}`).join(", ")}_`
     : undefined;
@@ -524,7 +529,20 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
     minimumVolume: board.minimumVolume,
   });
   if (useImageFormat(format, 1 + extraMetrics.length)) {
+    const tableImage = renderLeadersImage({
+      players: board.players,
+      season,
+      week,
+      position,
+      metric,
+      extraMetrics,
+      scoring,
+      team,
+      minimumVolume: board.minimumVolume,
+    });
+    const files: Array<{ attachment: Buffer; name: string }> = [{ attachment: tableImage, name: "leaders.png" }];
     const scatter = leadersScatterConfig(metric);
+    let hasChart = false;
     if (scatter) {
       const cohort = await queryLeaderboard({
         season,
@@ -537,7 +555,7 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
         // Preserve the full positional cohort; team-filtered board players are highlights.
         minimumVolumeFilter: board.minimumVolume,
       });
-      const image = renderLeadersScatterImage({
+      const chartImage = renderLeadersScatterImage({
         cohort: cohort.players,
         highlights: board.players,
         season,
@@ -548,24 +566,16 @@ export async function handleStatsLeadersCommand(interaction: ChatInputCommandInt
         team,
         minimumVolume: board.minimumVolume,
       });
-      embed.setImage("attachment://leaders.png");
-      await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "leaders.png" }] });
-      return;
+      files.push({ attachment: chartImage, name: "leaders-chart.png" });
+      hasChart = true;
     }
-    const image = renderLeadersImage({
-      players: board.players,
-      season,
-      week,
-      position,
-      metric,
-      extraMetrics,
-      scoring,
-      team,
-      minimumVolume: board.minimumVolume,
-    });
+    const when = week == null ? `${season} season` : `${season} week ${week}`;
+    embed.setDescription(
+      `${when} · ${scoring.receptions.replace("_", " ")} · ${1 + extraMetrics.length} displayed metric${extraMetrics.length ? "s" : ""}` +
+        (hasChart ? "\n_Chart attached below._" : ""),
+    );
     embed.setImage("attachment://leaders.png");
-    embed.setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scoring.receptions.replace("_", " ")} · ${1 + extraMetrics.length} displayed metric${extraMetrics.length ? "s" : ""}`);
-    await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "leaders.png" }] });
+    await interaction.editReply({ embeds: [embed], files });
     return;
   }
   await interaction.editReply({ embeds: [embed] });
@@ -605,6 +615,7 @@ export async function handlePlayerCompareCommand(interaction: ChatInputCommandIn
       .setTitle("Player comparison")
       .setDescription(`${week == null ? `${season} season` : `${season} week ${week}`} · ${scope.toUpperCase()} · ${scoring.receptions.replace("_", " ")}`)
       .setImage("attachment://stats.png");
+    applyStatsSourceFooter(embed);
     await interaction.editReply({ embeds: [embed], files: [{ attachment: image, name: "stats.png" }] });
     return;
   }

@@ -7,6 +7,7 @@ import type { StatsPlayerRow } from "./leaderboardQuery.js";
 import {
   formatLeaderMetricValue,
   LEADER_METRIC_LABELS,
+  STATS_SOURCE_FOOTER,
   type PlayerStatsScope,
 } from "./discordReports.js";
 
@@ -408,7 +409,7 @@ export function renderLeadersScatterImage(args: {
   ctx.textAlign = "left";
   ctx.fillStyle = "#7f91ad";
   ctx.font = font(400, 15);
-  ctx.fillText("Data: nflverse / nflfastR · ffopportunity · FTN when present", 42, height - 16);
+  ctx.fillText(STATS_SOURCE_FOOTER, 42, height - 16);
   return canvas.toBuffer("image/png");
 }
 
@@ -497,7 +498,7 @@ export function renderLeadersImage(args: {
   });
   ctx.fillStyle = "#7f91ad";
   ctx.font = font(400, 16);
-  const footer = "Data: nflverse / nflfastR · ffopportunity · FTN when present" +
+  const footer = STATS_SOURCE_FOOTER +
     (minimumVolume ? ` · min ${minimumVolume.value} ${minimumVolume.unit}` : "") +
     (team ? ` · ${team} filter` : "");
   ctx.fillText(truncate(ctx, footer, width - 84), 42, height - 28);
@@ -522,7 +523,7 @@ export function renderPlayerStatsImage(args: {
     : [...seasons.map((entry) => String(entry.season).slice(-2)), "AVG", "17G"];
   const rows = groups.reduce((total, group) => total + group.metrics.length + 1, 0);
   const width = 1080;
-  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 56);
+  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 78);
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -592,12 +593,13 @@ export function renderPlayerStatsImage(args: {
     y += 16;
   }
   ctx.fillStyle = "#7f91ad";
-  ctx.font = font(400, 16);
+  ctx.font = font(400, 15);
   ctx.fillText(
     "FPTS = fantasy points · FPG = fantasy points/game · xFP = expected fantasy points · FPOE = fantasy points over expected",
     42,
-    height - 28,
+    height - 48,
   );
+  ctx.fillText(STATS_SOURCE_FOOTER, 42, height - 24);
   return canvas.toBuffer("image/png");
 }
 
@@ -614,7 +616,7 @@ export function renderPlayerCompareImage(args: {
   const headers = players.map(playerColumnHeader);
   const rows = groups.reduce((total, group) => total + group.metrics.length + 1, 0);
   const width = 1080;
-  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 56);
+  const height = Math.max(320, 170 + rows * 42 + groups.length * 16 + 78);
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -674,12 +676,13 @@ export function renderPlayerCompareImage(args: {
     y += 16;
   }
   ctx.fillStyle = "#7f91ad";
-  ctx.font = font(400, 16);
+  ctx.font = font(400, 15);
   ctx.fillText(
     "FPTS = fantasy points · FPG = fantasy points/game · xFP = expected fantasy points · FPOE = fantasy points over expected",
     42,
-    height - 28,
+    height - 48,
   );
+  ctx.fillText(STATS_SOURCE_FOOTER, 42, height - 24);
   return canvas.toBuffer("image/png");
 }
 

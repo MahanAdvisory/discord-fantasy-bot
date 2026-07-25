@@ -8,6 +8,7 @@ import {
   pickReplacementPoints,
   vorpFromWeeklyScores,
 } from "@fantasy/services/stats/vorp";
+import { seasonTargetShareByPlayerKey } from "@fantasy/services/stats/leaderboardQuery";
 import type { Prisma } from "@prisma/client";
 
 const POS_START_COUNT: Record<string, number> = {
@@ -330,6 +331,14 @@ export async function GET(req: Request) {
       },
     };
   });
+
+  if (grain === "season") {
+    const shares = await seasonTargetShareByPlayerKey(season);
+    for (const row of scored) {
+      const share = shares.get(row.playerKey);
+      if (share != null) row.targetShare = share;
+    }
+  }
 
   // Rank by FPTS first; VORP uses per-week replacement for weeks the player was active.
   scored.sort((a, b) => b.fpts - a.fpts);

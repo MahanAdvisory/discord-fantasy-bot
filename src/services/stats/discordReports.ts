@@ -23,6 +23,14 @@ function discordText(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
+/** Shared attribution shown on every Discord stats report (embed footer / image caption). */
+export const STATS_SOURCE_FOOTER = "Data: nflverse / nflfastR · ffopportunity · FTN when present";
+
+export function applyStatsSourceFooter(embed: EmbedBuilder, extra?: string | null): EmbedBuilder {
+  const suffix = extra?.trim();
+  return embed.setFooter({ text: suffix ? `${STATS_SOURCE_FOOTER} · ${suffix}` : STATS_SOURCE_FOOTER });
+}
+
 /** Label matches underlying source: member start-rate vs FantasyPros rostered%. */
 function ownershipRateLabel(p: StatsPlayerRow): string {
   return p.startRateSource === "fantasypros_fallback" ? "Rostered%" : "Start%";
@@ -251,8 +259,8 @@ export function buildPlayerStatsEmbed(args: {
   );
   const embed = new EmbedBuilder()
     .setTitle(title)
-    .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
-    .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
+    .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`);
+  applyStatsSourceFooter(embed);
   const groups = reportGroups([p], scope);
   if (!groups.length) embed.setDescription(`${embed.data.description}\n\n_No ${scope} statistics recorded for this period._`);
   for (const group of groups) {
@@ -380,15 +388,16 @@ export function buildLeadersEmbed(args: {
     if (lines.join("\n").length + line.length + 1 > 3_800) break;
     lines.push(line);
   }
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(discordText(`Top ${players.length} ${team ? `${team} ` : ""}${position} by ${label}`, 256))
-    .setDescription(discordText(`**${when}** · ${scoringLabel(scoring)}\n\n${lines.join("\n") || "_No players_"}`, 4_096))
-    .setFooter({
-      text:
-        "Data: nflverse / nflfastR · ffopportunity · FTN when present" +
-        (minimumVolume ? ` · min ${minimumVolume.value} ${minimumVolume.unit}` : "") +
-        (team ? ` · ${team} filter; rows without team data are excluded` : ""),
-    });
+    .setDescription(discordText(`**${when}** · ${scoringLabel(scoring)}\n\n${lines.join("\n") || "_No players_"}`, 4_096));
+  const extras = [
+    minimumVolume ? `min ${minimumVolume.value} ${minimumVolume.unit}` : null,
+    team ? `${team} filter; rows without team data are excluded` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return applyStatsSourceFooter(embed, extras || null);
 }
 
 export function buildPlayerCompareEmbed(args: {
@@ -402,8 +411,8 @@ export function buildPlayerCompareEmbed(args: {
   const when = week == null ? `${season} season` : `${season} · week ${week}`;
   const embed = new EmbedBuilder()
     .setTitle("Player comparison")
-    .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`)
-    .setFooter({ text: "Data: nflverse / nflfastR · ffopportunity · FTN when present" });
+    .setDescription(`**${scope.toUpperCase()}** · ${when}\n_Scoring: ${scoringLabel(scoring)}_`);
+  applyStatsSourceFooter(embed);
 
   const headers = playerHeaders(players);
   embed.setDescription(discordText(`${embed.data.description}\n**Legend:** ${playerLegend(players, headers)}`, 4_096));
@@ -431,8 +440,8 @@ export function buildMultiYearPlayerStatsEmbed(args: {
       `_Scoring: ${scoringLabel(scoring)}_\n` +
       `_Av = average · 17 = combined totals ÷ combined G × 17 (rates use Av only)_\n` +
       `**Seasons:** ${seasons.map((entry) => `${String(entry.season).slice(-2)}=${entry.season}`).join(" · ")}`,
-    )
-    .setFooter({ text: "Data: nflverse / nflfastR" });
+    );
+  applyStatsSourceFooter(embed);
   const headers = [...seasons.map((entry) => String(entry.season).slice(-2)), "Av", "17"];
   for (const group of reportGroups(players, scope)) {
     const rows = group.metrics.map((metric) => {
