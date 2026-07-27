@@ -2,7 +2,7 @@
 import { signIn, signOut, useSession } from "next-auth/react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DraftLiveSnapshotPanel, type DraftLiveSnapshotView } from "@/components/DraftLiveSnapshotPanel";
-import { StatsLeaderboard } from "@/components/StatsLeaderboard";
+import { StatsPanel } from "@/components/StatsPanel";
 
 type TabKey = "drafts" | "leagues" | "lineup" | "activity" | "waivers" | "stats" | "notification_settings";
 type Dashboard = Awaited<ReturnType<typeof fetchDashboard>> | null;
@@ -734,7 +734,7 @@ export default function Home() {
           )}
 
           {activeTab === "stats" && dashboard && (
-            <StatsLeaderboard defaultSeason={dashboard.nfl.season} defaultWeek={dashboard.nfl.week} />
+            <StatsPanel defaultSeason={dashboard.nfl.season} defaultWeek={dashboard.nfl.week} />
           )}
 
           {activeTab === "waivers" && (
