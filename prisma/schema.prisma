@@ -327,6 +327,12 @@ model NflPlayerWeekStat {
   routesRun       Int? @map("routes_run")
   targetsPerRoute Float? @map("targets_per_route")
 
+  /// Zone opportunities from nflverse PBP (yardline_100). Red ≤20, green ≤10.
+  redZoneCarries    Int? @map("red_zone_carries")
+  redZoneTargets    Int? @map("red_zone_targets")
+  greenZoneCarries  Int? @map("green_zone_carries")
+  greenZoneTargets  Int? @map("green_zone_targets")
+
   // Roster % fallback (Phase 5)
   fantasyProsRosterPct Float? @map("fantasypros_roster_pct")
 

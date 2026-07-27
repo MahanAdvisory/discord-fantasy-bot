@@ -10,7 +10,10 @@ pip install -r etl/requirements.txt
 python etl/sync_nflverse.py
 # optional:
 python etl/sync_nflverse.py --seasons 2024 2025 --skip-routes
+# zone opps (red ≤20 / green ≤10) come from PBP; skip with --skip-zones
 ```
+
+Nightly steps: crosswalk → player stats → ffopportunity → snaps → routes → **zone opportunities (PBP)** → FantasyPros roster % → season rollup of opportunity/usage/zones.
 
 ## Railway
 

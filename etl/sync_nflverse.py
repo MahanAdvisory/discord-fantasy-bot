@@ -606,6 +606,123 @@ def sync_fantasypros_roster_pct(conn, seasons: list[int]) -> None:
         print(f"  fantasypros roster updates={n}")
 
 
+def sync_zone_opportunities(conn, seasons: list[int]) -> None:
+    """Fill red/green zone carry + target counts from nflverse play-by-play.
+
+    Definitions (line of scrimmage via yardline_100):
+      - Red zone:  yardline_100 <= 20
+      - Green zone: yardline_100 <= 10
+    Carries use rush_attempt + rusher_player_id.
+    Targets use pass_attempt + receiver_player_id (includes incompletions).
+    """
+    import nflreadpy as nfl
+    import pandas as pd
+
+    red_max = 20
+    green_max = 10
+
+    for season in seasons:
+        print(f"loading pbp season={season} for zone opportunities")
+        try:
+            df = nfl.load_pbp(seasons=season)
+        except Exception as e:
+            print(f"warn: pbp failed for {season}: {e}", file=sys.stderr)
+            continue
+        pdf = df.to_pandas() if hasattr(df, "to_pandas") else df
+        required = {
+            "yardline_100",
+            "week",
+            "rush_attempt",
+            "rusher_player_id",
+            "pass_attempt",
+            "receiver_player_id",
+        }
+        if not required.issubset(pdf.columns):
+            print(f"  missing PBP columns {sorted(required - set(pdf.columns))}; skip")
+            continue
+
+        reg = pdf[pdf["season_type"] == "REG"].copy() if "season_type" in pdf.columns else pdf.copy()
+        reg = reg[reg["week"].notna() & reg["yardline_100"].notna()].copy()
+        reg["week"] = reg["week"].astype(int)
+        if "season_type" not in reg.columns:
+            reg["season_type"] = "REG"
+        else:
+            reg["season_type"] = reg["season_type"].fillna("REG").astype(str)
+
+        rushes = reg[(reg["rush_attempt"] == 1) & reg["rusher_player_id"].notna()][
+            ["rusher_player_id", "week", "season_type", "yardline_100"]
+        ].rename(columns={"rusher_player_id": "gsis_id"})
+        rushes["red_zone_carries"] = (rushes["yardline_100"] <= red_max).astype(int)
+        rushes["green_zone_carries"] = (rushes["yardline_100"] <= green_max).astype(int)
+        rushes["red_zone_targets"] = 0
+        rushes["green_zone_targets"] = 0
+
+        targets = reg[(reg["pass_attempt"] == 1) & reg["receiver_player_id"].notna()][
+            ["receiver_player_id", "week", "season_type", "yardline_100"]
+        ].rename(columns={"receiver_player_id": "gsis_id"})
+        targets["red_zone_carries"] = 0
+        targets["green_zone_carries"] = 0
+        targets["red_zone_targets"] = (targets["yardline_100"] <= red_max).astype(int)
+        targets["green_zone_targets"] = (targets["yardline_100"] <= green_max).astype(int)
+
+        plays = pd.concat([rushes, targets], ignore_index=True)
+        plays["gsis_id"] = plays["gsis_id"].map(_valid_gsis)
+        plays = plays[plays["gsis_id"].notna()]
+        if plays.empty:
+            print("  no zone opportunity rows")
+            continue
+
+        agg = (
+            plays.groupby(["gsis_id", "week", "season_type"], as_index=False)
+            .agg(
+                red_zone_carries=("red_zone_carries", "sum"),
+                red_zone_targets=("red_zone_targets", "sum"),
+                green_zone_carries=("green_zone_carries", "sum"),
+                green_zone_targets=("green_zone_targets", "sum"),
+            )
+        )
+
+        now = datetime.now(timezone.utc)
+        sql = """
+        UPDATE nfl_player_week_stats SET
+          red_zone_carries = %(red_zone_carries)s,
+          red_zone_targets = %(red_zone_targets)s,
+          green_zone_carries = %(green_zone_carries)s,
+          green_zone_targets = %(green_zone_targets)s,
+          updated_at = %(updated_at)s
+        WHERE gsis_id = %(gsis_id)s
+          AND season = %(season)s
+          AND week = %(week)s
+          AND season_type = %(season_type)s
+          AND grain = 'week'
+        """
+        batch: list[dict[str, Any]] = []
+        for row in agg.itertuples(index=False):
+            batch.append(
+                {
+                    "gsis_id": row.gsis_id,
+                    "season": season,
+                    "week": int(row.week),
+                    "season_type": str(row.season_type),
+                    "red_zone_carries": int(row.red_zone_carries),
+                    "red_zone_targets": int(row.red_zone_targets),
+                    "green_zone_carries": int(row.green_zone_carries),
+                    "green_zone_targets": int(row.green_zone_targets),
+                    "updated_at": now,
+                }
+            )
+            if len(batch) >= 500:
+                with conn.cursor() as cur:
+                    cur.executemany(sql, batch)
+                conn.commit()
+                batch = []
+        if batch:
+            with conn.cursor() as cur:
+                cur.executemany(sql, batch)
+            conn.commit()
+        print(f"  zone opportunity player-weeks={len(agg)}")
+
+
 def rollup_season_opportunity_and_usage(conn, seasons: list[int]) -> None:
     """Aggregate weekly opportunity / routes / snaps onto season grain rows (week=-1)."""
     sql = """
@@ -626,6 +743,10 @@ def rollup_season_opportunity_and_usage(conn, seasons: list[int]) -> None:
         SUM(COALESCE(offense_snaps, 0)) AS offense_snaps,
         AVG(offense_snap_pct) AS offense_snap_pct,
         SUM(COALESCE(routes_run, 0)) AS routes_run,
+        SUM(COALESCE(red_zone_carries, 0)) AS red_zone_carries,
+        SUM(COALESCE(red_zone_targets, 0)) AS red_zone_targets,
+        SUM(COALESCE(green_zone_carries, 0)) AS green_zone_carries,
+        SUM(COALESCE(green_zone_targets, 0)) AS green_zone_targets,
         MAX(fantasypros_roster_pct) AS fantasypros_roster_pct
       FROM nfl_player_week_stats
       WHERE grain = 'week' AND season = ANY(%(seasons)s) AND week > 0
@@ -648,6 +769,10 @@ def rollup_season_opportunity_and_usage(conn, seasons: list[int]) -> None:
         WHEN w.routes_run > 0 AND s.targets IS NOT NULL
         THEN s.targets::float / w.routes_run
         ELSE NULL END,
+      red_zone_carries = NULLIF(w.red_zone_carries, 0),
+      red_zone_targets = NULLIF(w.red_zone_targets, 0),
+      green_zone_carries = NULLIF(w.green_zone_carries, 0),
+      green_zone_targets = NULLIF(w.green_zone_targets, 0),
       fantasypros_roster_pct = COALESCE(w.fantasypros_roster_pct, s.fantasypros_roster_pct),
       updated_at = NOW()
     FROM w
@@ -671,6 +796,7 @@ def main() -> None:
     parser.add_argument("--skip-opportunity", action="store_true")
     parser.add_argument("--skip-snaps", action="store_true")
     parser.add_argument("--skip-routes", action="store_true")
+    parser.add_argument("--skip-zones", action="store_true")
     parser.add_argument("--skip-rankings", action="store_true")
     parser.add_argument("--skip-rollup", action="store_true")
     args = parser.parse_args()
@@ -704,6 +830,8 @@ def main() -> None:
             sync_snap_counts(conn, seasons)
         if not args.skip_routes:
             sync_routes_tprr(conn, seasons)
+        if not args.skip_zones:
+            sync_zone_opportunities(conn, seasons)
         if not args.skip_rankings:
             sync_fantasypros_roster_pct(conn, seasons)
         if not args.skip_rollup:

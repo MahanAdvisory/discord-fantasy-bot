@@ -180,6 +180,14 @@ export type StatsPlayerRow = {
   firstDownsPerCarry: number | null;
   yardsPerCarry: number | null;
   firstDownsPerRoute: number | null;
+  redZoneCarries: number | null;
+  redZoneTargets: number | null;
+  greenZoneCarries: number | null;
+  greenZoneTargets: number | null;
+  /** Red-zone opportunities (carries + targets inside the 20). */
+  redZoneOpps: number | null;
+  /** Green-zone opportunities (carries + targets inside the 10). */
+  greenZoneOpps: number | null;
   startRate: number | null;
   startRateSource: string | null;
   rosterPct: number | null;
@@ -409,6 +417,10 @@ function enrichRow(
     receivingFirstDowns: number | null;
     rushingFumblesLost: number | null;
     receivingFumblesLost: number | null;
+    redZoneCarries: number | null;
+    redZoneTargets: number | null;
+    greenZoneCarries: number | null;
+    greenZoneTargets: number | null;
   },
   preset: ScoringPreset,
   startRates: Map<string, { startRate: number; source: string }>,
@@ -446,6 +458,18 @@ function enrichRow(
     routesRun != null && routesRun > 0 && r.receivingFirstDowns != null
       ? Math.round((r.receivingFirstDowns / routesRun) * 100) / 100
       : null;
+  const redZoneCarries = r.redZoneCarries ?? null;
+  const redZoneTargets = r.redZoneTargets ?? null;
+  const greenZoneCarries = r.greenZoneCarries ?? null;
+  const greenZoneTargets = r.greenZoneTargets ?? null;
+  const redZoneOpps =
+    redZoneCarries != null || redZoneTargets != null
+      ? (redZoneCarries ?? 0) + (redZoneTargets ?? 0)
+      : null;
+  const greenZoneOpps =
+    greenZoneCarries != null || greenZoneTargets != null
+      ? (greenZoneCarries ?? 0) + (greenZoneTargets ?? 0)
+      : null;
   const sr = r.sleeperPlayerId ? startRates.get(r.sleeperPlayerId) : undefined;
   return {
     rank: 0,
@@ -479,6 +503,12 @@ function enrichRow(
     firstDownsPerCarry,
     yardsPerCarry,
     firstDownsPerRoute,
+    redZoneCarries,
+    redZoneTargets,
+    greenZoneCarries,
+    greenZoneTargets,
+    redZoneOpps,
+    greenZoneOpps,
     startRate: sr?.startRate ?? (r.fantasyProsRosterPct != null ? r.fantasyProsRosterPct / 100 : null),
     startRateSource: sr?.source ?? (r.fantasyProsRosterPct != null ? "fantasypros_fallback" : null),
     rosterPct: r.fantasyProsRosterPct,
