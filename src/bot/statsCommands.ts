@@ -9,7 +9,11 @@ import {
   autocompletePlayerNames,
   findPlayerStats,
   findPlayerStatsWindow,
+  findPlayerWeeklyStats,
+  metricValue,
+  minimumVolumeForMetric,
   normalizeNflTeam,
+  playerVolume,
   queryLeaderboard,
   scoringFromOptions,
 } from "../services/stats/leaderboardQuery.js";
@@ -20,6 +24,7 @@ import {
   buildLeadersEmbed,
   buildMultiYearPlayerStatsEmbed,
   buildPlayerStatsEmbed,
+  buildStatsGrowthEmbed,
   type PlayerStatsScope,
 } from "../services/stats/discordReports.js";
 import {
@@ -28,7 +33,9 @@ import {
   renderLeadersScatterImage,
   renderPlayerCompareImage,
   renderPlayerStatsImage,
+  renderPlayerWeeklyImage,
 } from "../services/stats/statsImage.js";
+import { rankWeekChanges, type WeekChangeDirection } from "../services/stats/weekOverWeek.js";
 import { log } from "../logging.js";
 
 type StatsFormat = "auto" | "text" | "image";
@@ -49,7 +56,7 @@ export const playerStatsCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
   )
-  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
   .addStringOption((o) =>
     o
       .setName("window")
@@ -108,7 +115,7 @@ export const playerStatsMobileCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
   )
-  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
   .addStringOption((o) =>
     o
       .setName("window")
@@ -179,7 +186,7 @@ export const statsLeadersCommand = new SlashCommandBuilder()
         { name: "Superflex", value: "SUPERFLEX" },
       ),
   )
-  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
   .addStringOption((o) =>
     o
       .setName("extra_1")
@@ -249,7 +256,7 @@ export const playerCompareCommand = new SlashCommandBuilder()
   .addStringOption((o) =>
     o.setName("player_2").setDescription("Second player").setRequired(true).setAutocomplete(true),
   )
-  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2025)").setRequired(true))
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
   .addStringOption((o) => o.setName("player_3").setDescription("Optional third player").setAutocomplete(true))
   .addIntegerOption((o) => o.setName("week").setDescription("Optional week number; omit for full season"))
   .addStringOption((o) =>
@@ -286,6 +293,127 @@ export const playerCompareCommand = new SlashCommandBuilder()
       .setDescription("Output format (Auto uses image for more than 2 columns)")
       .addChoices({ name: "Auto", value: "auto" }, { name: "Text", value: "text" }, { name: "Image", value: "image" }),
   )
+  .addStringOption((o) =>
+    o
+      .setName("visibility")
+      .setDescription("Where to post the reply (defaults to this channel)")
+      .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
+  );
+
+const leaderMetricChoices = LEADER_METRICS.map((metric) => ({ name: metric.name, value: metric.value }));
+
+export const playerStatsWeeklyCommand = new SlashCommandBuilder()
+  .setName("player-stats-weekly")
+  .setDescription("Week-by-week stats for one player, with a trend graph")
+  .addStringOption((o) =>
+    o.setName("player").setDescription("Player name").setRequired(true).setAutocomplete(true),
+  )
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
+  .addStringOption((o) =>
+    o
+      .setName("scope")
+      .setDescription("Which stat package to table")
+      .addChoices(
+        { name: "Summary", value: "summary" },
+        { name: "Receiving", value: "receiving" },
+        { name: "Rushing", value: "rushing" },
+        { name: "Passing", value: "passing" },
+      ),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("chart")
+      .setDescription("Metric drawn in the graph (default FPTS)")
+      .addChoices(...leaderMetricChoices),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("scoring")
+      .setDescription("Reception scoring")
+      .addChoices(
+        { name: "PPR", value: "ppr" },
+        { name: "Half PPR", value: "half_ppr" },
+        { name: "Standard", value: "standard" },
+      ),
+  )
+  .addIntegerOption((o) =>
+    o
+      .setName("pass_td")
+      .setDescription("Passing TD points")
+      .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
+  )
+  .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
+  .addStringOption((o) =>
+    o
+      .setName("visibility")
+      .setDescription("Where to post the reply (defaults to this channel)")
+      .addChoices({ name: "This channel", value: "channel" }, { name: "Only you", value: "private" }),
+  );
+
+export const statsGrowthCommand = new SlashCommandBuilder()
+  .setName("stats-growth")
+  .setDescription("Largest week-to-week changes between two weeks")
+  .addStringOption((o) =>
+    o
+      .setName("metric")
+      .setDescription("Stat to compare")
+      .setRequired(true)
+      .addChoices(...leaderMetricChoices),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("position")
+      .setDescription("Position group")
+      .setRequired(true)
+      .addChoices(
+        { name: "QB", value: "QB" },
+        { name: "RB", value: "RB" },
+        { name: "WR", value: "WR" },
+        { name: "TE", value: "TE" },
+        { name: "FLEX", value: "FLEX" },
+        { name: "Superflex", value: "SUPERFLEX" },
+      ),
+  )
+  .addIntegerOption((o) => o.setName("season").setDescription("Season year (e.g. 2026)").setRequired(true))
+  .addIntegerOption((o) =>
+    o.setName("start_week").setDescription("First week").setRequired(true).setMinValue(1).setMaxValue(18),
+  )
+  .addIntegerOption((o) =>
+    o.setName("end_week").setDescription("Second week").setRequired(true).setMinValue(1).setMaxValue(18),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("direction")
+      .setDescription("Which changes to rank (default: biggest gains)")
+      .addChoices({ name: "Biggest gains", value: "gain" }, { name: "Biggest drops", value: "drop" }),
+  )
+  .addIntegerOption((o) =>
+    o.setName("limit").setDescription("How many rows (default 10, max 25)").setMinValue(3).setMaxValue(25),
+  )
+  .addIntegerOption((o) =>
+    o
+      .setName("min_volume")
+      .setDescription("Override minimum routes, targets, snaps, carries, or attempts in each week")
+      .setMinValue(0)
+      .setMaxValue(1000),
+  )
+  .addStringOption((o) =>
+    o
+      .setName("scoring")
+      .setDescription("Reception scoring")
+      .addChoices(
+        { name: "PPR", value: "ppr" },
+        { name: "Half PPR", value: "half_ppr" },
+        { name: "Standard", value: "standard" },
+      ),
+  )
+  .addIntegerOption((o) =>
+    o
+      .setName("pass_td")
+      .setDescription("Passing TD points")
+      .addChoices({ name: "4 pt", value: 4 }, { name: "6 pt", value: 6 }),
+  )
+  .addBooleanOption((o) => o.setName("te_premium").setDescription("TE premium (+0.5 per reception)"))
   .addStringOption((o) =>
     o
       .setName("visibility")
@@ -620,5 +748,124 @@ export async function handlePlayerCompareCommand(interaction: ChatInputCommandIn
     return;
   }
   const embed = buildPlayerCompareEmbed({ players, season, week, scope, scoring });
+  await interaction.editReply({ embeds: [embed] });
+}
+
+export async function handlePlayerStatsWeeklyCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const player = interaction.options.getString("player", true);
+  const season = interaction.options.getInteger("season", true);
+  const scope = (interaction.options.getString("scope") ?? "summary") as PlayerStatsScope;
+  const chartMetric = interaction.options.getString("chart") ?? "fpts";
+  const flags = replyFlags(interaction.options.getString("visibility"));
+  const scoring = scoringFromOptions({
+    scoring: interaction.options.getString("scoring"),
+    passTd: interaction.options.getInteger("pass_td"),
+    tePremium: interaction.options.getBoolean("te_premium"),
+  });
+  await interaction.deferReply(flags);
+
+  const found = await findPlayerWeeklyStats({ playerQuery: player, season, scoring });
+  if (!found) {
+    await interaction.editReply({ content: `No stats found for **${player}** in ${season}.` });
+    return;
+  }
+  if (!found.weeks.length) {
+    await interaction.editReply({
+      content: `No regular-season weeks found for **${found.playerName}** in ${season}.`,
+    });
+    return;
+  }
+  const image = renderPlayerWeeklyImage({
+    playerName: found.playerName,
+    playerTeam: found.playerTeam,
+    playerPosition: found.playerPosition,
+    season,
+    scope,
+    scoring,
+    weeks: found.weeks,
+    chartMetric,
+  });
+  const embed = new EmbedBuilder()
+    .setTitle(`${found.playerName} — week by week`)
+    .setDescription(`${season} · ${scope.toUpperCase()} · ${found.weeks.length} weeks · ${scoring.receptions.replace("_", " ")}`)
+    .setImage("attachment://weekly.png");
+  applyStatsSourceFooter(embed);
+  const content = found.matches.length > 1
+    ? `_Showing best match. Also matched: ${found.matches.slice(0, 5).map((match) => `${match.name}${match.team ? ` (${match.team})` : ""}`).join(", ")}_`
+    : undefined;
+  await interaction.editReply({
+    content,
+    embeds: [embed],
+    files: [{ attachment: image, name: "weekly.png" }],
+  });
+}
+
+export async function handleStatsGrowthCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const metric = interaction.options.getString("metric", true);
+  const position = interaction.options.getString("position", true);
+  const season = interaction.options.getInteger("season", true);
+  const startWeek = interaction.options.getInteger("start_week", true);
+  const endWeek = interaction.options.getInteger("end_week", true);
+  const direction = (interaction.options.getString("direction") ?? "gain") as WeekChangeDirection;
+  const limit = interaction.options.getInteger("limit") ?? 10;
+  const minVolumeOption = interaction.options.getInteger("min_volume");
+  const flags = replyFlags(interaction.options.getString("visibility"));
+  const scoring = scoringFromOptions({
+    scoring: interaction.options.getString("scoring"),
+    passTd: interaction.options.getInteger("pass_td"),
+    tePremium: interaction.options.getBoolean("te_premium"),
+  });
+  if (startWeek === endWeek) {
+    await interaction.reply({ content: "Pick two different weeks.", ...flags });
+    return;
+  }
+  await interaction.deferReply(flags);
+
+  const [startBoard, endBoard] = await Promise.all([
+    queryLeaderboard({ season, week: startWeek, position, sort: "fpts", limit: 2000, scoring }),
+    queryLeaderboard({ season, week: endWeek, position, sort: "fpts", limit: 2000, scoring }),
+  ]);
+  const defaultMinimum = minimumVolumeForMetric(metric, startWeek);
+  const minimum =
+    defaultMinimum == null
+      ? null
+      : {
+          ...defaultMinimum,
+          value: minVolumeOption ?? defaultMinimum.value,
+          isDefault: minVolumeOption == null,
+        };
+  const endByKey = new Map(endBoard.players.map((player) => [player.playerKey, player]));
+  const volumeUnit = minimum?.unit;
+  const samples = [];
+  for (const startPlayer of startBoard.players) {
+    const endPlayer = endByKey.get(startPlayer.playerKey);
+    if (!endPlayer) continue;
+    samples.push({
+      playerKey: endPlayer.playerKey,
+      playerName: endPlayer.playerName ?? startPlayer.playerName,
+      team: endPlayer.team ?? startPlayer.team,
+      position: endPlayer.position ?? startPlayer.position,
+      startValue: metricValue(startPlayer, metric),
+      endValue: metricValue(endPlayer, metric),
+      startVolume: volumeUnit ? playerVolume(startPlayer, volumeUnit) : 0,
+      endVolume: volumeUnit ? playerVolume(endPlayer, volumeUnit) : 0,
+    });
+  }
+  const changes = rankWeekChanges(samples, {
+    direction,
+    minVolume: minimum?.value ?? 0,
+    limit,
+  });
+  const embed = buildStatsGrowthEmbed({
+    changes,
+    season,
+    startWeek,
+    endWeek,
+    position,
+    metric,
+    direction,
+    scoring,
+    minimumVolume: minimum,
+  });
   await interaction.editReply({ embeds: [embed] });
 }

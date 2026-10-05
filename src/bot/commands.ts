@@ -47,6 +47,8 @@ import {
   playerCompareCommand,
   playerStatsCommand,
   playerStatsMobileCommand,
+  playerStatsWeeklyCommand,
+  statsGrowthCommand,
   statsLeadersCommand,
 } from "./statsCommands.js";
 
@@ -71,7 +73,7 @@ const slashCommandBuilders = [
       o.setName("league_id").setDescription("ESPN league id from URL").setRequired(true),
     )
     .addStringOption((o) =>
-      o.setName("season").setDescription("Season year, e.g. 2025 (optional)"),
+      o.setName("season").setDescription("Season year, e.g. 2026 (optional)"),
     )
     .addIntegerOption((o) =>
       o
@@ -208,7 +210,9 @@ const slashCommandBuilders = [
     ),
   playerStatsCommand,
   playerStatsMobileCommand,
+  playerStatsWeeklyCommand,
   statsLeadersCommand,
+  statsGrowthCommand,
   playerCompareCommand,
 ];
 
@@ -310,7 +314,9 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
     commandName !== "poll-now" &&
     commandName !== "player-stats" &&
     commandName !== "player-stats-mobile" &&
+    commandName !== "player-stats-weekly" &&
     commandName !== "stats-leaders" &&
+    commandName !== "stats-growth" &&
     commandName !== "player-compare"
   ) {
     await interaction.reply({ content: "Use this command in a server.", ...slashEphemeral(interaction) });
@@ -481,8 +487,10 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/unlink-espn league_id:<id>` — remove saved ESPN league",
       "• `/player-stats` — receiving / rushing / passing / summary; choose Auto, text, or image format",
       "• `/player-stats-mobile` — a phone-friendly PNG stats card",
+      "• `/player-stats-weekly` — one season, week by week, with a trend graph",
       "• `/player-compare` — compare two or three players side-by-side; choose Auto, text, or image format",
       "• `/stats-leaders` — top-N by a selected metric; add up to three display stats and choose Auto, text, or image format",
+      "• `/stats-growth` — largest week-to-week gains or drops between two weeks",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
     return;
@@ -689,6 +697,18 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   if (commandName === "player-compare") {
     const { handlePlayerCompareCommand } = await import("./statsCommands.js");
     await handlePlayerCompareCommand(interaction);
+    return;
+  }
+
+  if (commandName === "player-stats-weekly") {
+    const { handlePlayerStatsWeeklyCommand } = await import("./statsCommands.js");
+    await handlePlayerStatsWeeklyCommand(interaction);
+    return;
+  }
+
+  if (commandName === "stats-growth") {
+    const { handleStatsGrowthCommand } = await import("./statsCommands.js");
+    await handleStatsGrowthCommand(interaction);
     return;
   }
 

@@ -111,6 +111,7 @@ export type LeaderboardSortKey =
   | "snaps"
   | "catch_pct"
   | "adot"
+  | "pass_adot"
   | "air_yds"
   | "yac"
   | "racr"
@@ -124,7 +125,7 @@ export type LeaderboardSortKey =
 
 export type LeaderboardMinimumVolume = {
   value: number;
-  unit: "carries" | "routes" | "targets" | "snaps";
+  unit: "carries" | "routes" | "targets" | "snaps" | "attempts";
   isDefault: boolean;
 };
 
@@ -132,20 +133,44 @@ const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "rac
 const CARRY_RATE_METRICS = new Set(["fd_carry", "ypc"]);
 const TARGET_RATE_METRICS = new Set(["catch_pct", "adot"]);
 const SNAP_RATE_METRICS = new Set(["snap_pct"]);
+const PASS_ATTEMPT_RATE_METRICS = new Set(["pass_adot"]);
 
 function defaultMinimumVolume(sort: string, week: number | null): Omit<LeaderboardMinimumVolume, "isDefault"> | null {
   if (CARRY_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "carries" };
   if (ROUTE_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "routes" };
   if (TARGET_RATE_METRICS.has(sort)) return { value: week == null ? 10 : 2, unit: "targets" };
   if (SNAP_RATE_METRICS.has(sort)) return { value: week == null ? 100 : 10, unit: "snaps" };
+  if (PASS_ATTEMPT_RATE_METRICS.has(sort)) return { value: week == null ? 100 : 10, unit: "attempts" };
   return null;
+}
+
+/** Average depth of target for a passer: passing air yards ÷ attempts. */
+export function passingAverageTargetDistance(
+  airYards: number | null | undefined,
+  attempts: number | null | undefined,
+): number | null {
+  if (airYards == null || attempts == null || attempts <= 0) return null;
+  if (!Number.isFinite(airYards) || !Number.isFinite(attempts)) return null;
+  return airYards / attempts;
 }
 
 function volumeFor(row: StatsPlayerRow, unit: LeaderboardMinimumVolume["unit"]): number {
   if (unit === "carries") return row.box.carries ?? 0;
   if (unit === "routes") return row.routesRun ?? 0;
   if (unit === "targets") return row.box.targets ?? 0;
+  if (unit === "attempts") return row.box.attempts ?? 0;
   return row.offenseSnaps ?? 0;
+}
+
+export function minimumVolumeForMetric(
+  metric: string,
+  week: number | null,
+): Omit<LeaderboardMinimumVolume, "isDefault"> | null {
+  return defaultMinimumVolume(metric, week);
+}
+
+export function playerVolume(row: StatsPlayerRow, unit: LeaderboardMinimumVolume["unit"]): number {
+  return volumeFor(row, unit);
 }
 
 export type StatsPlayerRow = {
@@ -170,6 +195,8 @@ export type StatsPlayerRow = {
   catchRate: number | null;
   catchRateExp: number | null;
   adot: number | null;
+  /** Passer average depth of target: passing air yards ÷ attempts. */
+  passingAdot: number | null;
   airYards: number | null;
   yac: number | null;
   racr: number | null;
@@ -363,6 +390,10 @@ function sortValue(row: StatsPlayerRow, sort: string): number | string {
       return row.box.interceptions ?? -Infinity;
     case "cmp":
       return row.box.completions ?? -Infinity;
+    case "adot":
+      return row.adot ?? -Infinity;
+    case "pass_adot":
+      return row.passingAdot ?? -Infinity;
     case "xfp":
       return row.xfp ?? -Infinity;
     case "fpoe":
@@ -409,6 +440,7 @@ function enrichRow(
     passingYards: number | null;
     passingTds: number | null;
     interceptions: number | null;
+    passingAirYards: number | null;
     carries: number | null;
     rushingYards: number | null;
     rushingTds: number | null;
@@ -437,6 +469,7 @@ function enrichRow(
   const catchRate = targets > 0 ? receptions / targets : null;
   const catchRateExp = r.receptionsExp != null && targets > 0 ? r.receptionsExp / targets : null;
   const adot = r.receivingAirYards != null && targets > 0 ? r.receivingAirYards / targets : null;
+  const passingAdot = passingAverageTargetDistance(r.passingAirYards, r.attempts);
   const routesRun = r.routesRun;
   const offenseSnaps = r.offenseSnaps;
   const yprr =
@@ -493,6 +526,7 @@ function enrichRow(
     catchRate,
     catchRateExp,
     adot,
+    passingAdot,
     airYards: r.receivingAirYards ?? null,
     yac: r.receivingYac,
     racr: r.racr,
@@ -560,7 +594,7 @@ export async function queryLeaderboard(args: {
   const grain = args.week == null ? "season" : "week";
   const preset = args.scoring ?? DEFAULT_SCORING;
   const defaultLimit = position === "SUPERFLEX" || position === "FLEX" ? 200 : 100;
-  const limit = Math.min(400, Math.max(1, args.limit ?? defaultLimit));
+  const limit = Math.min(2_000, Math.max(1, args.limit ?? defaultLimit));
   const q = args.q?.trim() ?? "";
   const team = args.team ? normalizeNflTeam(args.team) : null;
   const defaultMinimum = defaultMinimumVolume(sort, args.week);
@@ -809,6 +843,151 @@ export async function findPlayerStatsWindow(args: {
     seasons: results,
     matches: base.matches,
   };
+}
+
+export type PlayerWeekSlice = {
+  week: number;
+  opponent: string | null;
+  player: StatsPlayerRow;
+};
+
+/** Regular-season weeks for one player, oldest week first. */
+export async function findPlayerWeeklyStats(args: {
+  playerQuery: string;
+  season: number;
+  scoring?: ScoringPreset;
+}): Promise<{
+  playerName: string;
+  playerTeam: string | null;
+  playerPosition: string | null;
+  matches: Array<{ name: string; team: string | null; position: string | null }>;
+  weeks: PlayerWeekSlice[];
+} | null> {
+  const base = await findPlayerStats({
+    playerQuery: args.playerQuery,
+    season: args.season,
+    scoring: args.scoring,
+  });
+  if (!base) return null;
+  const preset = args.scoring ?? DEFAULT_SCORING;
+  const rows = await prisma.nflPlayerWeekStat.findMany({
+    where: {
+      season: args.season,
+      grain: "week",
+      week: { gt: 0, lte: 18 },
+      playerKey: base.player.playerKey,
+      seasonType: { in: ["REG", "reg"] },
+    },
+    orderBy: [{ week: "asc" }, { fantasyPointsPpr: "desc" }],
+  });
+  const seen = new Set<number>();
+  const weeks: PlayerWeekSlice[] = [];
+  for (const row of rows) {
+    if (seen.has(row.week)) continue;
+    seen.add(row.week);
+    weeks.push({
+      week: row.week,
+      opponent: row.opponent,
+      player: enrichRow(row, preset, new Map()),
+    });
+  }
+  return {
+    playerName: base.player.playerName ?? args.playerQuery,
+    playerTeam: base.player.team,
+    playerPosition: base.player.position,
+    matches: base.matches,
+    weeks,
+  };
+}
+
+/** Numeric leaderboard metrics. Null when the player has no value for that stat. */
+export function metricValue(row: StatsPlayerRow, metric: string): number | null {
+  switch (metric) {
+    case "fpts":
+      return row.fpts;
+    case "fpts_g":
+      return row.fptsPerGame;
+    case "g":
+      return row.games;
+    case "xfp":
+      return row.xfp;
+    case "fpoe":
+      return row.fpoe;
+    case "vorp":
+      return row.vorp;
+    case "tgt_pct":
+      return row.targetShare;
+    case "tprr":
+      return row.targetsPerRoute;
+    case "yprr":
+      return row.yprr;
+    case "adot":
+      return row.adot;
+    case "pass_adot":
+      return row.passingAdot;
+    case "rec_epa":
+      return row.receivingEpa;
+    case "rush_epa":
+      return row.rushingEpa;
+    case "fd":
+      return row.firstDowns;
+    case "rush_fd":
+      return row.box.rushingFirstDowns;
+    case "rec_fd":
+      return row.box.receivingFirstDowns;
+    case "fd_carry":
+      return row.firstDownsPerCarry;
+    case "ypc":
+      return row.yardsPerCarry;
+    case "fd_rr":
+      return row.firstDownsPerRoute;
+    case "tgt":
+      return row.box.targets;
+    case "rec":
+      return row.box.receptions;
+    case "rec_yds":
+      return row.box.receivingYards;
+    case "rec_td":
+      return row.box.receivingTds;
+    case "att":
+      return row.box.carries;
+    case "rush_yds":
+      return row.box.rushingYards;
+    case "rush_td":
+      return row.box.rushingTds;
+    case "pass_yds":
+      return row.box.passingYards;
+    case "pass_att":
+      return row.box.attempts;
+    case "pass_td":
+      return row.box.passingTds;
+    case "int":
+      return row.box.interceptions;
+    case "cmp":
+      return row.box.completions;
+    case "air_yds":
+      return row.airYards;
+    case "routes":
+      return row.routesRun;
+    case "route_pct":
+      return row.routePct;
+    case "snap_pct":
+      return row.offenseSnapPct;
+    case "snaps":
+      return row.offenseSnaps;
+    case "catch_pct":
+      return row.catchRate;
+    case "start_pct":
+      return row.startRate;
+    case "yac":
+      return row.yac;
+    case "racr":
+      return row.racr;
+    case "wopr":
+      return row.wopr;
+    default:
+      return null;
+  }
 }
 
 export async function autocompletePlayerNames(args: {

@@ -57,6 +57,7 @@ const SORT_FIELDS = new Set([
   "snaps",
   "catch_pct",
   "adot",
+  "pass_adot",
   "air_yds",
   "yac",
   "racr",
@@ -71,9 +72,13 @@ const SORT_FIELDS = new Set([
 const ROUTE_RATE_METRICS = new Set(["tgt_pct", "tprr", "yprr", "route_pct", "racr", "wopr", "fd_rr"]);
 const CARRY_RATE_METRICS = new Set(["fd_carry", "ypc"]);
 
-function defaultMinimumVolume(sort: string, week: number | null): { value: number; unit: "carries" | "routes" } | null {
+function defaultMinimumVolume(
+  sort: string,
+  week: number | null,
+): { value: number; unit: "carries" | "routes" | "attempts" } | null {
   if (CARRY_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "carries" };
   if (ROUTE_RATE_METRICS.has(sort)) return { value: week == null ? 50 : 8, unit: "routes" };
+  if (sort === "pass_adot") return { value: week == null ? 100 : 10, unit: "attempts" };
   return null;
 }
 
@@ -152,6 +157,8 @@ function sortValue(row: Record<string, unknown>, sort: string): number | string 
       return Number((row.box as Record<string, number | null> | undefined)?.interceptions) || -Infinity;
     case "cmp":
       return Number((row.box as Record<string, number | null> | undefined)?.completions) || -Infinity;
+    case "pass_adot":
+      return typeof row.passingAdot === "number" ? row.passingAdot : -Infinity;
     default: {
       const v = row[sort];
       return typeof v === "number" ? v : typeof v === "string" ? v : -Infinity;
@@ -223,6 +230,7 @@ export async function GET(req: Request) {
     catchRate: number | null;
     catchRateExp: number | null;
     adot: number | null;
+    passingAdot: number | null;
     airYards: number | null;
     yac: number | null;
     racr: number | null;
@@ -253,6 +261,8 @@ export async function GET(req: Request) {
     const catchRate = targets > 0 ? receptions / targets : null;
     const catchRateExp = r.receptionsExp != null && targets > 0 ? r.receptionsExp / targets : null;
     const adot = r.receivingAirYards != null && targets > 0 ? r.receivingAirYards / targets : null;
+    const passingAdot =
+      r.passingAirYards != null && r.attempts != null && r.attempts > 0 ? r.passingAirYards / r.attempts : null;
     const routesRun = r.routesRun;
     const offenseSnaps = r.offenseSnaps;
     const receivingYards = r.receivingYards;
@@ -298,6 +308,7 @@ export async function GET(req: Request) {
       catchRate,
       catchRateExp,
       adot,
+      passingAdot,
       airYards: r.receivingAirYards ?? null,
       yac: r.receivingYac,
       racr: r.racr,
@@ -425,11 +436,15 @@ export async function GET(req: Request) {
 
   const minimumVolume = defaultMinimumVolume(sort, week);
   const eligible = minimumVolume
-    ? scored.filter((row) =>
-        minimumVolume.unit === "carries"
-          ? (row.box.carries ?? 0) >= minimumVolume.value
-          : (row.routesRun ?? 0) >= minimumVolume.value,
-      )
+    ? scored.filter((row) => {
+        const volume =
+          minimumVolume.unit === "carries"
+            ? (row.box.carries ?? 0)
+            : minimumVolume.unit === "attempts"
+              ? (row.box.attempts ?? 0)
+              : (row.routesRun ?? 0);
+        return volume >= minimumVolume.value;
+      })
     : scored;
   const dirMul = sortDir === "asc" ? 1 : -1;
   eligible.sort((a, b) => {

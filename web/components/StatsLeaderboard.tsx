@@ -23,6 +23,7 @@ type LeaderboardPlayer = {
   catchRate: number | null;
   catchRateExp: number | null;
   adot: number | null;
+  passingAdot: number | null;
   airYards: number | null;
   yac: number | null;
   racr: number | null;
@@ -103,6 +104,7 @@ type SortKey =
   | "snap_pct"
   | "catch_pct"
   | "adot"
+  | "pass_adot"
   | "air_yds"
   | "yac"
   | "racr"
@@ -141,7 +143,8 @@ const LEGEND: Array<{ abbr: string; meaning: string }> = [
   { abbr: "Snaps", meaning: "Offensive snaps played" },
   { abbr: "Snap%", meaning: "Offensive snap share" },
   { abbr: "Catch%", meaning: "Catch rate (receptions ÷ targets)" },
-  { abbr: "aDOT", meaning: "Average depth of target (air yards ÷ targets)" },
+  { abbr: "aDOT", meaning: "Receiver average depth of target (receiving air yards ÷ targets)" },
+  { abbr: "Pass aDOT", meaning: "Passer average depth of target (passing air yards ÷ attempts)" },
   { abbr: "Air Yds", meaning: "Receiving air yards" },
   { abbr: "YAC", meaning: "Yards after catch" },
   { abbr: "RACR", meaning: "Receiver air conversion ratio" },
@@ -163,9 +166,8 @@ function num(v: number | null | undefined, digits = 1): string {
 
 function latestAvailableSeason(defaultSeason: string): number {
   const n = Number(defaultSeason);
-  // NFL slate for calendar year Y isn't available early in Y; 2026 has no data yet.
-  if (!Number.isFinite(n)) return 2025;
-  return Math.min(n, 2025);
+  if (Number.isFinite(n) && n >= 2015) return n;
+  return new Date().getFullYear();
 }
 
 function seasonOptions(defaultSeason: string): string[] {
@@ -177,7 +179,7 @@ function seasonOptions(defaultSeason: string): string[] {
 
 export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason: string; defaultWeek: number }) {
   const seasons = useMemo(() => seasonOptions(defaultSeason), [defaultSeason]);
-  const [season, setSeason] = useState(() => seasons[0] ?? "2025");
+  const [season, setSeason] = useState(() => seasons[0] ?? String(new Date().getFullYear()));
   const [week, setWeek] = useState<string>("season");
   const [position, setPosition] = useState("RB");
   const [scoring, setScoring] = useState("ppr");
@@ -423,6 +425,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                       <SortTh id="pass_yds">Pass Yds</SortTh>
                       <SortTh id="pass_td">Pass TD</SortTh>
                       <SortTh id="int">INT</SortTh>
+                      <SortTh id="pass_adot">Pass aDOT</SortTh>
                     </>
                   )}
                   {showRush && (
@@ -485,6 +488,7 @@ export function StatsLeaderboard({ defaultSeason, defaultWeek }: { defaultSeason
                         <td className="px-3 py-2">{p.box.passingYards ?? 0}</td>
                         <td className="px-3 py-2">{p.box.passingTds ?? 0}</td>
                         <td className="px-3 py-2">{p.box.interceptions ?? 0}</td>
+                        <td className="px-3 py-2">{num(p.passingAdot, 1)}</td>
                       </>
                     )}
                     {showRush && (

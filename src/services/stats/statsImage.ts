@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ScoringPreset } from "../../domain/fantasyScoring.js";
-import type { StatsPlayerRow } from "./leaderboardQuery.js";
+import { metricValue, type PlayerWeekSlice, type StatsPlayerRow } from "./leaderboardQuery.js";
 import {
   formatLeaderMetricValue,
   LEADER_METRIC_LABELS,
@@ -68,6 +68,7 @@ const PASS: Metric[] = [
   { label: "Yds", value: (p) => number(p.box.passingYards), format: count },
   { label: "TD", value: (p) => number(p.box.passingTds), format: count },
   { label: "INT", value: (p) => number(p.box.interceptions), format: count },
+  { label: "aDOT", value: (p) => p.passingAdot, format: (v) => decimal(v) },
 ];
 const RUSH: Metric[] = [
   { label: "Att", value: (p) => number(p.box.carries), format: count },
@@ -238,6 +239,12 @@ export function leadersScatterConfig(metric: string): LeadersScatterConfig | nul
   if (normalized === "att") return { x: carryAxis, y: ypcAxis };
   if (["rush_yds", "rush_fd"].includes(normalized)) return { x: carryAxis, y: ypcAxis };
   if (normalized === "pass_yds") return { x: passAttemptAxis, y: ypaAxis };
+  if (normalized === "pass_adot") {
+    return {
+      x: passAttemptAxis,
+      y: { metric: "pass_adot", label: "Pass aDOT", value: (player) => number(player.passingAdot) },
+    };
+  }
   return null;
 }
 
@@ -253,7 +260,7 @@ function abbreviatedName(player: StatsPlayerRow): string {
 
 function scatterAxisText(axis: ScatterAxis, value: number): string {
   if (axis.percent) return `${Math.round(value * 100)}%`;
-  return ["yprr", "fd_rr", "fd_carry", "ypc", "rec_epa", "rush_epa", "adot", "ypa"].includes(axis.metric)
+  return ["yprr", "fd_rr", "fd_carry", "ypc", "rec_epa", "rush_epa", "adot", "pass_adot", "ypa"].includes(axis.metric)
     ? decimal(value, 1)
     : count(value);
 }
@@ -700,4 +707,223 @@ function seventeenGameMetric(metric: Metric, players: StatsPlayerRow[]): string 
   if (!values.length || metric.label.includes("%") || ["FPG", "FD/C", "YPC", "EPA", "TPRR", "YPRR", "aDOT", "Start%"].includes(metric.label)) return "—";
   const projected = (values.reduce((sum, entry) => sum + entry.value, 0) / values.reduce((sum, entry) => sum + entry.games, 0)) * 17;
   return (metric.format ?? ((value: number) => decimal(value)))(projected);
+}
+
+const WEEKLY_SUMMARY: Metric[] = [
+  { label: "FPTS", value: (p) => p.fpts, format: (v) => decimal(v) },
+  { label: "xFP", value: (p) => p.xfp, format: (v) => decimal(v) },
+  { label: "FPOE", value: (p) => p.fpoe, format: (v) => decimal(v) },
+];
+const WEEKLY_PASS: Metric[] = [
+  { label: "Cmp", value: (p) => number(p.box.completions), format: count },
+  { label: "Att", value: (p) => number(p.box.attempts), format: count },
+  { label: "Yds", value: (p) => number(p.box.passingYards), format: count },
+  { label: "TD", value: (p) => number(p.box.passingTds), format: count },
+  { label: "INT", value: (p) => number(p.box.interceptions), format: count },
+  { label: "aDOT", value: (p) => p.passingAdot, format: (v) => decimal(v) },
+];
+const WEEKLY_RUSH: Metric[] = [
+  { label: "Att", value: (p) => number(p.box.carries), format: count },
+  { label: "Yds", value: (p) => number(p.box.rushingYards), format: count },
+  { label: "YPC", value: (p) => p.yardsPerCarry, format: (v) => decimal(v, 2) },
+  { label: "TD", value: (p) => number(p.box.rushingTds), format: count },
+  { label: "1D", value: (p) => number(p.box.rushingFirstDowns), format: count },
+];
+const WEEKLY_REC: Metric[] = [
+  { label: "Tgt", value: (p) => number(p.box.targets), format: count },
+  { label: "Rec", value: (p) => number(p.box.receptions), format: count },
+  { label: "Yds", value: (p) => number(p.box.receivingYards), format: count },
+  { label: "TD", value: (p) => number(p.box.receivingTds), format: count },
+  { label: "Tgt%", value: (p) => p.targetShare, format: percent },
+  { label: "aDOT", value: (p) => p.adot, format: (v) => decimal(v) },
+  { label: "YPRR", value: (p) => p.yprr, format: (v) => decimal(v, 2) },
+];
+
+function presentMetrics(metrics: Metric[], players: StatsPlayerRow[]): Metric[] {
+  return metrics.filter((metric) =>
+    players.some((player) => {
+      const raw = metric.value(player);
+      return raw != null && raw !== 0;
+    }),
+  );
+}
+
+function weeklyColumns(scope: PlayerStatsScope, weeks: PlayerWeekSlice[]): Metric[] {
+  const players = weeks.map((week) => week.player);
+  if (scope === "passing") return presentMetrics(WEEKLY_PASS, players);
+  if (scope === "rushing") return presentMetrics(WEEKLY_RUSH, players);
+  if (scope === "receiving") return presentMetrics(WEEKLY_REC, players);
+  const columns = [
+    ...presentMetrics(WEEKLY_SUMMARY, players),
+    ...presentMetrics(WEEKLY_PASS, players),
+    ...presentMetrics(WEEKLY_RUSH, players),
+    ...presentMetrics(WEEKLY_REC, players),
+  ];
+  return columns.length ? columns : WEEKLY_SUMMARY;
+}
+
+function chartTick(metric: string, value: number): string {
+  if (["tgt_pct", "tprr", "snap_pct", "start_pct", "route_pct"].includes(metric)) return percent(value);
+  if (["yprr", "ypc", "fd_carry", "fd_rr", "rec_epa", "rush_epa", "racr", "wopr"].includes(metric)) return decimal(value, 2);
+  if (["fpts", "fpts_g", "xfp", "fpoe", "vorp", "adot", "pass_adot"].includes(metric)) return decimal(value, 1);
+  return count(value);
+}
+
+export function renderPlayerWeeklyImage(args: {
+  playerName: string;
+  playerTeam: string | null;
+  playerPosition: string | null;
+  season: number;
+  scope: PlayerStatsScope;
+  scoring: ScoringPreset;
+  weeks: PlayerWeekSlice[];
+  chartMetric: string;
+}): Buffer {
+  registerFonts();
+  const { playerName, playerTeam, playerPosition, season, scope, scoring, weeks, chartMetric } = args;
+  const columns = weeklyColumns(scope, weeks);
+  const width = Math.max(1180, 250 + (columns.length + 2) * 84);
+  const tableTop = 184;
+  const rowHeight = 34;
+  const tableBottom = tableTop + rowHeight * (weeks.length + 1);
+  const chartBox = { left: 78, top: tableBottom + 72, right: width - 42, bottom: tableBottom + 300 };
+  const height = chartBox.bottom + 84;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#101724";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#182235";
+  ctx.fillRect(0, 0, width, 150);
+  ctx.fillStyle = "#68d7ff";
+  ctx.fillRect(0, 146, width, 4);
+
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = font(700, 36);
+  ctx.fillText(playerName, 42, 56);
+  ctx.fillStyle = "#b9c6da";
+  ctx.font = font(500, 22);
+  const identity = [playerTeam, playerPosition].filter(Boolean).join(" · ");
+  ctx.fillText(`${identity ? `${identity} · ` : ""}${season} WEEKLY ${scope.toUpperCase()}`, 42, 90);
+  ctx.fillStyle = "#91a4c2";
+  ctx.font = font(400, 19);
+  const chartLabel = LEADER_METRIC_LABELS[chartMetric] ?? chartMetric.toUpperCase();
+  ctx.fillText(`${scoringLabel(scoring)} · chart: ${chartLabel}`, 42, 122);
+
+  const labelX = 42;
+  const weekCol = 70;
+  const oppCol = 78;
+  const startX = labelX + weekCol + oppCol;
+  const colWidth = (width - startX - 36) / Math.max(1, columns.length);
+
+  ctx.fillStyle = "#24324b";
+  ctx.fillRect(28, tableTop - 26, width - 56, 34);
+  ctx.fillStyle = "#c7d3e6";
+  ctx.font = font(700, 16);
+  ctx.fillText("Wk", labelX, tableTop - 3);
+  ctx.fillText("Opp", labelX + weekCol, tableTop - 3);
+  ctx.textAlign = "right";
+  columns.forEach((column, index) => {
+    ctx.fillText(column.label, startX + colWidth * (index + 1) - 8, tableTop - 3);
+  });
+  ctx.textAlign = "left";
+
+  weeks.forEach((slice, rowIndex) => {
+    const y = tableTop + rowHeight * (rowIndex + 1);
+    if (rowIndex % 2 === 0) {
+      ctx.fillStyle = "#151f30";
+      ctx.fillRect(28, y - 24, width - 56, rowHeight);
+    }
+    ctx.fillStyle = "#dce6f5";
+    ctx.font = font(500, 18);
+    ctx.fillText(String(slice.week), labelX, y);
+    ctx.fillText(slice.opponent ?? "—", labelX + weekCol, y);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = font(600, 18);
+    ctx.textAlign = "right";
+    columns.forEach((column, index) => {
+      ctx.fillText(rowValue(column, slice.player), startX + colWidth * (index + 1) - 8, y);
+    });
+    ctx.textAlign = "left";
+  });
+
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = font(700, 22);
+  ctx.fillText(`${chartLabel} by week`, 42, chartBox.top - 28);
+
+  const series = weeks.map((slice) => ({ week: slice.week, value: metricValue(slice.player, chartMetric) }));
+  const plotted = series.filter((point): point is { week: number; value: number } => point.value != null && Number.isFinite(point.value));
+  if (!plotted.length || weeks.length === 0) {
+    ctx.fillStyle = "#91a4c2";
+    ctx.font = font(400, 18);
+    ctx.fillText("No weekly values for this chart metric.", chartBox.left, chartBox.top + 24);
+  } else {
+    const minWeek = weeks[0]!.week;
+    const maxWeek = weeks[weeks.length - 1]!.week;
+    const rawMin = Math.min(...plotted.map((point) => point.value));
+    const rawMax = Math.max(...plotted.map((point) => point.value));
+    const padding = Math.max((rawMax - rawMin) * 0.16, 0.5);
+    const zeroBaseline = [
+      "fpts", "fpts_g", "pass_yds", "rush_yds", "rec_yds", "tgt", "rec", "att", "routes", "snaps",
+      "air_yds", "cmp", "pass_att", "pass_td", "rush_td", "rec_td", "int", "rush_fd", "rec_fd", "fd",
+    ].includes(chartMetric);
+    const yMin = zeroBaseline && rawMin >= 0 ? 0 : rawMin - padding;
+    const yMax = Math.max(yMin + 1, (zeroBaseline && rawMax <= 0 ? 0 : rawMax) + padding);
+    const scaleX = (week: number) =>
+      maxWeek === minWeek
+        ? (chartBox.left + chartBox.right) / 2
+        : chartBox.left + ((week - minWeek) / (maxWeek - minWeek)) * (chartBox.right - chartBox.left);
+    const scaleY = (value: number) => chartBox.bottom - ((value - yMin) / (yMax - yMin)) * (chartBox.bottom - chartBox.top);
+
+    ctx.strokeStyle = "#2b3a55";
+    ctx.lineWidth = 1;
+    ctx.font = font(400, 15);
+    ctx.fillStyle = "#91a4c2";
+    ctx.textAlign = "right";
+    for (let tick = 0; tick <= 4; tick += 1) {
+      const y = chartBox.top + ((chartBox.bottom - chartBox.top) * tick) / 4;
+      const value = yMax - ((yMax - yMin) * tick) / 4;
+      ctx.beginPath();
+      ctx.moveTo(chartBox.left, y);
+      ctx.lineTo(chartBox.right, y);
+      ctx.stroke();
+      ctx.fillText(chartTick(chartMetric, value), chartBox.left - 10, y + 5);
+    }
+    ctx.textAlign = "center";
+    for (const slice of weeks) {
+      const x = scaleX(slice.week);
+      ctx.fillText(String(slice.week), x, chartBox.bottom + 22);
+    }
+    ctx.textAlign = "left";
+
+    ctx.strokeStyle = "#68d7ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    let drawing = false;
+    for (const point of series) {
+      if (point.value == null || !Number.isFinite(point.value)) {
+        drawing = false;
+        continue;
+      }
+      const x = scaleX(point.week);
+      const y = scaleY(point.value);
+      if (!drawing) {
+        ctx.moveTo(x, y);
+        drawing = true;
+      } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = "#f4f7fb";
+    for (const point of plotted) {
+      ctx.beginPath();
+      ctx.arc(scaleX(point.week), scaleY(point.value), 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.fillStyle = "#7f91ad";
+  ctx.font = font(400, 15);
+  ctx.fillText(STATS_SOURCE_FOOTER, 42, height - 28);
+  return canvas.toBuffer("image/png");
 }

@@ -1,6 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 import type { ScoringPreset } from "../../domain/fantasyScoring.js";
 import type { LeaderboardMinimumVolume, StatsPlayerRow } from "./leaderboardQuery.js";
+import type { WeekChange, WeekChangeDirection } from "./weekOverWeek.js";
 
 function n(v: number | null | undefined, digits = 1): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -127,6 +128,7 @@ const PASSING_METRICS: StatsMetric[] = [
   { label: TABLE_METRIC_LABELS.yards, kind: "count", value: (p) => value(p.box.passingYards), format: integer },
   { label: TABLE_METRIC_LABELS.touchdowns, kind: "count", value: (p) => value(p.box.passingTds), format: integer },
   { label: TABLE_METRIC_LABELS.interceptions, kind: "count", value: (p) => value(p.box.interceptions), format: integer },
+  { label: TABLE_METRIC_LABELS.adot, kind: "rate", value: (p) => p.passingAdot, format: (v) => n(v, 1) },
 ];
 const RUSHING_METRICS: StatsMetric[] = [
   { label: TABLE_METRIC_LABELS.attempts, kind: "count", value: (p) => value(p.box.carries), format: integer },
@@ -279,6 +281,7 @@ export const LEADER_METRIC_LABELS: Record<string, string> = {
   tprr: "TPRR",
   yprr: "YPRR",
   adot: "aDOT",
+  pass_adot: "Pass aDOT",
   rec_epa: "Rec EPA",
   rush_epa: "Rush EPA",
   att: "Carries",
@@ -317,6 +320,8 @@ export function formatLeaderMetricValue(p: StatsPlayerRow, metric: string): stri
       return n(p.yprr, 2);
     case "adot":
       return n(p.adot, 1);
+    case "pass_adot":
+      return n(p.passingAdot, 1);
     case "rec_epa":
       return n(p.receivingEpa, 2);
     case "rush_epa":
@@ -398,6 +403,81 @@ export function buildLeadersEmbed(args: {
     .filter(Boolean)
     .join(" · ");
   return applyStatsSourceFooter(embed, extras || null);
+}
+
+function formatGrowthValue(metric: string, value: number): string {
+  switch (metric) {
+    case "tgt_pct":
+    case "tprr":
+    case "snap_pct":
+    case "start_pct":
+      return pct(value);
+    case "adot":
+    case "pass_adot":
+    case "fpts":
+    case "fpts_g":
+    case "xfp":
+    case "fpoe":
+    case "vorp":
+      return n(value, 1);
+    case "yprr":
+    case "ypc":
+    case "fd_carry":
+    case "fd_rr":
+    case "rec_epa":
+    case "rush_epa":
+    case "racr":
+    case "wopr":
+      return n(value, 2);
+    default:
+      return String(Math.round(value));
+  }
+}
+
+function formatGrowthDelta(metric: string, delta: number): string {
+  const text = formatGrowthValue(metric, delta);
+  if (delta > 0 && !text.startsWith("+")) return `+${text}`;
+  return text;
+}
+
+export function buildStatsGrowthEmbed(args: {
+  changes: WeekChange[];
+  season: number;
+  startWeek: number;
+  endWeek: number;
+  position: string;
+  metric: string;
+  direction: WeekChangeDirection;
+  scoring: ScoringPreset;
+  minimumVolume?: LeaderboardMinimumVolume | { value: number; unit: string } | null;
+}): EmbedBuilder {
+  const { changes, season, startWeek, endWeek, position, metric, direction, scoring, minimumVolume } = args;
+  const label = LEADER_METRIC_LABELS[metric] ?? metric.toUpperCase();
+  const directionLabel = direction === "drop" ? "drops" : "gains";
+  const lines: string[] = [];
+  for (const [index, change] of changes.entries()) {
+    const playerLabel = discordText(
+      `${change.playerName ?? "?"}${change.team ? ` (${change.team})` : ""}${change.position ? ` ${change.position}` : ""}`,
+      80,
+    );
+    const line =
+      `**${index + 1}.** ${playerLabel} — ${formatGrowthValue(metric, change.startValue)} → ` +
+      `${formatGrowthValue(metric, change.endValue)} (**${formatGrowthDelta(metric, change.delta)}**)`;
+    if (lines.join("\n").length + line.length + 1 > 3_700) break;
+    lines.push(line);
+  }
+  const embed = new EmbedBuilder()
+    .setTitle(discordText(`Largest ${label} ${directionLabel} · ${position}`, 256))
+    .setDescription(
+      discordText(
+        `**${season} W${startWeek} → W${endWeek}** · ${scoringLabel(scoring)}\n\n${
+          lines.join("\n") || "_No players changed in this direction for the selected filters._"
+        }`,
+        4_096,
+      ),
+    );
+  const floor = minimumVolume && minimumVolume.value > 0 ? `min ${minimumVolume.value} ${minimumVolume.unit} in both weeks` : null;
+  return applyStatsSourceFooter(embed, floor);
 }
 
 export function buildPlayerCompareEmbed(args: {
@@ -489,7 +569,7 @@ export const LEADER_METRICS = [
   { name: "Rec Yards", value: "rec_yds" },
   { name: "Rush Yards", value: "rush_yds" },
   { name: "Pass Yards", value: "pass_yds" },
-  { name: "Air Yards", value: "air_yds" },
+  { name: "Pass aDOT", value: "pass_adot" },
   { name: "Routes", value: "routes" },
   { name: "Snap%", value: "snap_pct" },
 ] as const;
