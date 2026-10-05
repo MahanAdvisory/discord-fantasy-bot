@@ -3,7 +3,7 @@ import test from "node:test";
 import { DEFAULT_SCORING } from "../../domain/fantasyScoring.js";
 import { LEADER_METRICS } from "./discordReports.js";
 import type { StatsPlayerRow } from "./leaderboardQuery.js";
-import { leadersScatterConfig, receivingScatterConfig, renderPlayerWeeklyImage } from "./statsImage.js";
+import { chartYRange, leadersScatterConfig, receivingScatterConfig, renderPlayerWeeklyImage } from "./statsImage.js";
 
 test("receiving scatter metrics use the specified volume axes", () => {
   for (const metric of ["tgt_pct", "adot", "rec_epa"]) {
@@ -59,6 +59,15 @@ test("fantasy metrics retain the table image", () => {
   for (const metric of ["fpts", "vorp"]) {
     assert.equal(leadersScatterConfig(metric), null);
   }
+});
+
+test("percentage charts stay at or above zero", () => {
+  const range = chartYRange("tgt_pct", 0.18, 0.31);
+  assert.ok(range.yMin >= 0);
+  assert.ok(range.yMax > range.yMin);
+  assert.ok(range.yMax < 1);
+  const floor = chartYRange("snap_pct", 0.01, 0.04);
+  assert.equal(floor.yMin, 0);
 });
 
 test("discord leader metrics stay within slash-command choice limit", () => {

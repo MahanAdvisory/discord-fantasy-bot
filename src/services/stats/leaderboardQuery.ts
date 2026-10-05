@@ -173,6 +173,11 @@ export function playerVolume(row: StatsPlayerRow, unit: LeaderboardMinimumVolume
   return volumeFor(row, unit);
 }
 
+/** True when at least one row has a real route count. Null and 0 mean routes are not loaded yet. */
+export function routeCountsAvailable(rows: Array<{ routesRun: number | null }>): boolean {
+  return rows.some((row) => row.routesRun != null && row.routesRun > 0);
+}
+
 export type StatsPlayerRow = {
   rank: number;
   playerKey: string;
@@ -716,9 +721,11 @@ export async function queryLeaderboard(args: {
     }
   }
 
+  const appliedMinimum =
+    minimumVolume?.unit === "routes" && !routeCountsAvailable(scored) ? null : minimumVolume;
   const eligible =
-    minimumVolume != null && minimumVolume.value > 0
-      ? scored.filter((row) => volumeFor(row, minimumVolume.unit) >= minimumVolume.value)
+    appliedMinimum != null && appliedMinimum.value > 0
+      ? scored.filter((row) => volumeFor(row, appliedMinimum.unit) >= appliedMinimum.value)
       : scored;
   const dirMul = sortDir === "asc" ? 1 : -1;
   eligible.sort((a, b) => {
@@ -740,7 +747,7 @@ export async function queryLeaderboard(args: {
     scoring: preset,
     replacementPoints: Math.round(replacementSummary.fpts * 10) / 10,
     replacementPerGame: Math.round(replacementSummary.fptsPerGame * 10) / 10,
-    minimumVolume,
+    minimumVolume: appliedMinimum,
   };
 }
 

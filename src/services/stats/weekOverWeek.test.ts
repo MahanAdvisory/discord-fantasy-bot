@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { passingAverageTargetDistance } from "./leaderboardQuery.js";
+import { passingAverageTargetDistance, routeCountsAvailable } from "./leaderboardQuery.js";
 import { rankWeekChanges } from "./weekOverWeek.js";
 
 test("passing average target distance is air yards per attempt", () => {
@@ -27,6 +27,11 @@ test("week-over-week gains keep the largest increases that clear volume", () => 
     ["a", "b"],
   );
   assert.equal(ranked[0]?.delta, 12);
+});
+
+test("missing route counts drop the route minimum", () => {
+  assert.equal(routeCountsAvailable([{ routesRun: null }, { routesRun: 0 }]), false);
+  assert.equal(routeCountsAvailable([{ routesRun: null }, { routesRun: 12 }]), true);
 });
 
 test("week-over-week drops sort the largest decreases first", () => {

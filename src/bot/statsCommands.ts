@@ -15,6 +15,7 @@ import {
   normalizeNflTeam,
   playerVolume,
   queryLeaderboard,
+  routeCountsAvailable,
   scoringFromOptions,
 } from "../services/stats/leaderboardQuery.js";
 import {
@@ -826,7 +827,7 @@ export async function handleStatsGrowthCommand(interaction: ChatInputCommandInte
     queryLeaderboard({ season, week: endWeek, position, sort: "fpts", limit: 2000, scoring }),
   ]);
   const defaultMinimum = minimumVolumeForMetric(metric, startWeek);
-  const minimum =
+  const requestedMinimum =
     defaultMinimum == null
       ? null
       : {
@@ -834,6 +835,10 @@ export async function handleStatsGrowthCommand(interaction: ChatInputCommandInte
           value: minVolumeOption ?? defaultMinimum.value,
           isDefault: minVolumeOption == null,
         };
+  const routesMissing =
+    requestedMinimum?.unit === "routes" &&
+    (!routeCountsAvailable(startBoard.players) || !routeCountsAvailable(endBoard.players));
+  const minimum = routesMissing ? null : requestedMinimum;
   const endByKey = new Map(endBoard.players.map((player) => [player.playerKey, player]));
   const volumeUnit = minimum?.unit;
   const samples = [];

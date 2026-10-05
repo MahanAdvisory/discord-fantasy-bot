@@ -341,7 +341,8 @@ export function renderLeadersScatterImage(args: {
   const yRawMin = yValues.length ? Math.min(...yValues) : 0;
   const yRawMax = yValues.length ? Math.max(...yValues) : 1;
   const yPadding = Math.max((yRawMax - yRawMin) * 0.12, config.y.percent ? 0.02 : 0.1);
-  const yMin = Math.min(config.y.percent || yRawMin >= 0 ? 0 : yRawMin - yPadding, yRawMin - yPadding);
+  const unclampedYMin = Math.min(config.y.percent || yRawMin >= 0 ? 0 : yRawMin - yPadding, yRawMin - yPadding);
+  const yMin = config.y.percent ? Math.max(0, unclampedYMin) : unclampedYMin;
   const yMax = Math.max(yMin + 1, yRawMax + yPadding);
   const scaleX = (value: number) => chart.left + (value / xMax) * (chart.right - chart.left);
   const scaleY = (value: number) => chart.bottom - ((value - yMin) / (yMax - yMin)) * (chart.bottom - chart.top);
@@ -762,6 +763,22 @@ function weeklyColumns(scope: PlayerStatsScope, weeks: PlayerWeekSlice[]): Metri
   return columns.length ? columns : WEEKLY_SUMMARY;
 }
 
+const PERCENT_CHART_METRICS = new Set(["tgt_pct", "tprr", "snap_pct", "start_pct", "route_pct", "catch_pct"]);
+const ZERO_BASELINE_METRICS = new Set([
+  "fpts", "fpts_g", "pass_yds", "rush_yds", "rec_yds", "tgt", "rec", "att", "routes", "snaps",
+  "air_yds", "cmp", "pass_att", "pass_td", "rush_td", "rec_td", "int", "rush_fd", "rec_fd", "fd",
+]);
+
+/** Y-axis for the weekly trend. Shares and other percentages stay at or above zero. */
+export function chartYRange(metric: string, rawMin: number, rawMax: number): { yMin: number; yMax: number } {
+  const percent = PERCENT_CHART_METRICS.has(metric);
+  const zeroBaseline = ZERO_BASELINE_METRICS.has(metric);
+  const padding = Math.max((rawMax - rawMin) * 0.16, percent ? 0.02 : 0.5);
+  const yMin = percent ? Math.max(0, rawMin - padding) : zeroBaseline && rawMin >= 0 ? 0 : rawMin - padding;
+  const yMax = Math.max(yMin + (percent ? 0.05 : 1), (zeroBaseline && rawMax <= 0 ? 0 : rawMax) + padding);
+  return { yMin, yMax };
+}
+
 function chartTick(metric: string, value: number): string {
   if (["tgt_pct", "tprr", "snap_pct", "start_pct", "route_pct"].includes(metric)) return percent(value);
   if (["yprr", "ypc", "fd_carry", "fd_rr", "rec_epa", "rush_epa", "racr", "wopr"].includes(metric)) return decimal(value, 2);
@@ -862,13 +879,7 @@ export function renderPlayerWeeklyImage(args: {
     const maxWeek = weeks[weeks.length - 1]!.week;
     const rawMin = Math.min(...plotted.map((point) => point.value));
     const rawMax = Math.max(...plotted.map((point) => point.value));
-    const padding = Math.max((rawMax - rawMin) * 0.16, 0.5);
-    const zeroBaseline = [
-      "fpts", "fpts_g", "pass_yds", "rush_yds", "rec_yds", "tgt", "rec", "att", "routes", "snaps",
-      "air_yds", "cmp", "pass_att", "pass_td", "rush_td", "rec_td", "int", "rush_fd", "rec_fd", "fd",
-    ].includes(chartMetric);
-    const yMin = zeroBaseline && rawMin >= 0 ? 0 : rawMin - padding;
-    const yMax = Math.max(yMin + 1, (zeroBaseline && rawMax <= 0 ? 0 : rawMax) + padding);
+    const { yMin, yMax } = chartYRange(chartMetric, rawMin, rawMax);
     const scaleX = (week: number) =>
       maxWeek === minWeek
         ? (chartBox.left + chartBox.right) / 2

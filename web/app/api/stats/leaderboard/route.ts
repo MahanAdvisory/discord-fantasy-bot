@@ -8,7 +8,7 @@ import {
   pickReplacementPoints,
   vorpFromWeeklyScores,
 } from "@fantasy/services/stats/vorp";
-import { seasonTargetShareByPlayerKey } from "@fantasy/services/stats/leaderboardQuery";
+import { routeCountsAvailable, seasonTargetShareByPlayerKey } from "@fantasy/services/stats/leaderboardQuery";
 import type { Prisma } from "@prisma/client";
 
 const POS_START_COUNT: Record<string, number> = {
@@ -434,7 +434,9 @@ export async function GET(req: Request) {
     }
   }
 
-  const minimumVolume = defaultMinimumVolume(sort, week);
+  const requestedMinimum = defaultMinimumVolume(sort, week);
+  const minimumVolume =
+    requestedMinimum?.unit === "routes" && !routeCountsAvailable(scored) ? null : requestedMinimum;
   const eligible = minimumVolume
     ? scored.filter((row) => {
         const volume =
