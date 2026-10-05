@@ -150,43 +150,45 @@ def sync_crosswalk(conn) -> None:
         print(f"warn: load_ff_playerids failed: {e}", file=sys.stderr)
 
     rows: list[dict[str, Any]] = []
-    seen_gsis: set[str] = set()
     with conn.cursor() as cur:
+        cur.execute("SELECT gsis_id FROM player_id_crosswalk WHERE gsis_id IS NOT NULL")
+        seen_gsis: set[str] = {r[0] for r in cur.fetchall()}
         cur.execute("SELECT player_id, data FROM sleeper_players")
-        for player_id, data in cur.fetchall():
-            d = data if isinstance(data, dict) else json.loads(data) if data else {}
-            espn = _str(d.get("espn_id"))
+        catalog_rows = cur.fetchall()
+    for player_id, data in catalog_rows:
+        d = data if isinstance(data, dict) else json.loads(data) if data else {}
+        espn = _str(d.get("espn_id"))
+        gsis = None
+        meta = {}
+        if espn and espn in gsis_by_espn:
+            meta = gsis_by_espn[espn]
+            gsis = _valid_gsis(meta.get("gsis_id"))
+        # also match from ffids keyed by sleeper
+        if player_id in gsis_by_espn and gsis_by_espn[player_id].get("sleeper_player_id"):
+            meta = gsis_by_espn[player_id]
+            gsis = _valid_gsis(meta.get("gsis_id"))
+        # gsis_id is unique — skip if another sleeper row already claimed it
+        if gsis and gsis in seen_gsis:
             gsis = None
-            meta = {}
-            if espn and espn in gsis_by_espn:
-                meta = gsis_by_espn[espn]
-                gsis = _valid_gsis(meta.get("gsis_id"))
-            # also match from ffids keyed by sleeper
-            if player_id in gsis_by_espn and gsis_by_espn[player_id].get("sleeper_player_id"):
-                meta = gsis_by_espn[player_id]
-                gsis = _valid_gsis(meta.get("gsis_id"))
-            # gsis_id is unique — skip if another sleeper row already claimed it
-            if gsis and gsis in seen_gsis:
-                gsis = None
-            if gsis:
-                seen_gsis.add(gsis)
-            full = (
-                _str(d.get("full_name"))
-                or " ".join(x for x in [_str(d.get("first_name")), _str(d.get("last_name"))] if x)
-                or meta.get("full_name")
-            )
-            rows.append(
-                {
-                    "sleeper_player_id": player_id,
-                    "gsis_id": gsis,
-                    "espn_id": espn or meta.get("espn_id"),
-                    "pfr_id": meta.get("pfr_id"),
-                    "full_name": full,
-                    "position": _str(d.get("position")) or meta.get("position"),
-                    "team": _str(d.get("team")) or meta.get("team"),
-                    "updated_at": now,
-                }
-            )
+        if gsis:
+            seen_gsis.add(gsis)
+        full = (
+            _str(d.get("full_name"))
+            or " ".join(x for x in [_str(d.get("first_name")), _str(d.get("last_name"))] if x)
+            or meta.get("full_name")
+        )
+        rows.append(
+            {
+                "sleeper_player_id": player_id,
+                "gsis_id": gsis,
+                "espn_id": espn or meta.get("espn_id"),
+                "pfr_id": meta.get("pfr_id"),
+                "full_name": full,
+                "position": _str(d.get("position")) or meta.get("position"),
+                "team": _str(d.get("team")) or meta.get("team"),
+                "updated_at": now,
+            }
+        )
 
     # Also insert ffids rows where we have sleeper_id but no catalog row yet
     for key, meta in gsis_by_espn.items():
@@ -814,7 +816,10 @@ def main() -> None:
             elif hasattr(nfl, "get_current_season"):
                 year = int(nfl.get_current_season())
         except Exception:
-            year = min(year, 2025)
+            year = datetime.now().year
+        # NFL season year matches calendar year from roughly August onward.
+        if datetime.now().month >= 8:
+            year = max(year, datetime.now().year)
         # Nightly: current + prior two seasons (full history via --seasons 2015 …)
         seasons = sorted({year - 2, year - 1, year})
 

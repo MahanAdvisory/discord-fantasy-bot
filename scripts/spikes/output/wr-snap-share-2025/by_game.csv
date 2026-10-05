@@ -1,0 +1,545 @@
+season,week,game_id,team,opponent,WR1_snap_pct,WR2_snap_pct,WR3_snap_pct,top3_sum,WR1,WR2,WR3
+2025,1,2025_01_ARI_NO,ARI,NO,0.89,0.67,0.47,2.0300000000000002,Marvin Harrison Jr.,Michael Wilson,Zay Jones
+2025,1,2025_01_ARI_NO,NO,ARI,0.85,0.85,0.76,2.46,Rashid Shaheed,Chris Olave,Brandin Cooks
+2025,1,2025_01_BAL_BUF,BAL,BUF,0.9,0.73,0.35,1.98,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,1,2025_01_BAL_BUF,BUF,BAL,0.88,0.71,0.62,2.21,Keon Coleman,Khalil Shakir,Josh Palmer
+2025,1,2025_01_CAR_JAX,CAR,JAX,0.83,0.78,0.66,2.27,Tetairoa McMillan,Xavier Legette,Hunter Renfrow
+2025,1,2025_01_CAR_JAX,JAX,CAR,0.86,0.71,0.64,2.21,Brian Thomas,Dyami Brown,Travis Hunter
+2025,1,2025_01_CIN_CLE,CIN,CLE,0.87,0.79,0.65,2.31,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,1,2025_01_CIN_CLE,CLE,CIN,0.88,0.88,0.28,2.04,Cedric Tillman,Jerry Jeudy,Isaiah Bond
+2025,1,2025_01_DAL_PHI,DAL,PHI,0.92,0.92,0.46,2.3000000000000003,CeeDee Lamb,George Pickens,KaVontae Turpin
+2025,1,2025_01_DAL_PHI,PHI,DAL,0.89,0.87,0.46,2.22,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,1,2025_01_DET_GB,DET,GB,0.97,0.94,0.66,2.57,Jameson Williams,Amon-Ra St. Brown,Kalif Raymond
+2025,1,2025_01_DET_GB,GB,DET,0.71,0.48,0.46,1.65,Romeo Doubs,Matthew Golden,Dontayvion Wicks
+2025,1,2025_01_HOU_LA,HOU,LA,0.84,0.68,0.56,2.08,Nico Collins,Xavier Hutchinson,Justin Watson
+2025,1,2025_01_HOU_LA,LA,HOU,0.9,0.63,0.5,2.0300000000000002,Davante Adams,Puka Nacua,Jordan Whittington
+2025,1,2025_01_KC_LAC,KC,LAC,0.93,0.8,0.72,2.45,Marquise Brown,JuJu Smith-Schuster,Tyquan Thornton
+2025,1,2025_01_KC_LAC,LAC,KC,0.85,0.82,0.62,2.29,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,1,2025_01_LV_NE,LV,NE,0.94,0.9,0.6,2.44,Jakobi Meyers,Tre Tucker,Dont'e Thornton
+2025,1,2025_01_LV_NE,NE,LV,0.82,0.63,0.56,2.01,Kayshon Boutte,Demario Douglas,Mack Hollins
+2025,1,2025_01_MIA_IND,IND,MIA,0.82,0.79,0.49,2.0999999999999996,Michael Pittman Jr.,Alec Pierce,Josh Downs
+2025,1,2025_01_MIA_IND,MIA,IND,0.65,0.62,0.58,1.85,Jaylen Waddle,Tyreek Hill,Malik Washington
+2025,1,2025_01_MIN_CHI,CHI,MIN,0.94,0.84,0.45,2.23,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,1,2025_01_MIN_CHI,MIN,CHI,0.98,0.88,0.57,2.4299999999999997,Justin Jefferson,Jalen Nailor,Adam Thielen
+2025,1,2025_01_NYG_WAS,NYG,WAS,0.97,0.94,0.76,2.67,Darius Slayton,Malik Nabers,Wan'Dale Robinson
+2025,1,2025_01_NYG_WAS,WAS,NYG,0.79,0.77,0.47,2.0300000000000002,Terry McLaurin,Deebo Samuel,Noah Brown
+2025,1,2025_01_PIT_NYJ,NYJ,PIT,1.0,0.97,0.52,2.49,Garrett Wilson,Josh Reynolds,Tyler Johnson
+2025,1,2025_01_PIT_NYJ,PIT,NYJ,0.95,0.8,0.18,1.93,D.K. Metcalf,Calvin Austin III,Ben Skowronek
+2025,1,2025_01_SF_SEA,SEA,SF,0.88,0.77,0.54,2.19,Cooper Kupp,Jaxon Smith-Njigba,Tory Horton
+2025,1,2025_01_SF_SEA,SF,SEA,0.84,0.66,0.37,1.87,Ricky Pearsall,Jauan Jennings,Russell Gage
+2025,1,2025_01_TB_ATL,ATL,TB,0.95,0.88,0.72,2.55,Casey Washington,Drake London,Ray-Ray McCloud
+2025,1,2025_01_TB_ATL,TB,ATL,0.93,0.83,0.64,2.4,Emeka Egbuka,Mike Evans,Sterling Shepard
+2025,1,2025_01_TEN_DEN,DEN,TEN,0.95,0.59,0.53,2.0700000000000003,Courtland Sutton,Troy Franklin,Marvin Mims
+2025,1,2025_01_TEN_DEN,TEN,DEN,0.95,0.79,0.58,2.32,Calvin Ridley,Elic Ayomanor,Tyler Lockett
+2025,2,2025_02_ATL_MIN,ATL,MIN,0.86,0.85,0.23,1.94,Darnell Mooney,Drake London,Ray-Ray McCloud
+2025,2,2025_02_ATL_MIN,MIN,ATL,1.0,1.0,0.81,2.81,Jalen Nailor,Justin Jefferson,Adam Thielen
+2025,2,2025_02_BUF_NYJ,BUF,NYJ,0.51,0.51,0.49,1.51,Keon Coleman,Josh Palmer,Khalil Shakir
+2025,2,2025_02_BUF_NYJ,NYJ,BUF,0.96,0.94,0.47,2.37,Tyler Johnson,Garrett Wilson,Arian Smith
+2025,2,2025_02_CAR_ARI,ARI,CAR,0.93,0.69,0.51,2.13,Marvin Harrison Jr.,Michael Wilson,Zay Jones
+2025,2,2025_02_CAR_ARI,CAR,ARI,0.85,0.81,0.8,2.46,Tetairoa McMillan,Hunter Renfrow,Xavier Legette
+2025,2,2025_02_CHI_DET,CHI,DET,1.0,0.88,0.44,2.32,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,2,2025_02_CHI_DET,DET,CHI,0.88,0.85,0.54,2.27,Jameson Williams,Amon-Ra St. Brown,Kalif Raymond
+2025,2,2025_02_CLE_BAL,BAL,CLE,0.79,0.59,0.5,1.88,Zay Flowers,Rashod Bateman,Tylan Wallace
+2025,2,2025_02_CLE_BAL,CLE,BAL,0.95,0.88,0.38,2.21,Cedric Tillman,Jerry Jeudy,Isaiah Bond
+2025,2,2025_02_DEN_IND,DEN,IND,0.83,0.78,0.38,1.9899999999999998,Troy Franklin,Courtland Sutton,Trent Sherfield
+2025,2,2025_02_DEN_IND,IND,DEN,0.9,0.83,0.58,2.31,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,2,2025_02_JAX_CIN,CIN,JAX,0.96,0.87,0.84,2.67,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,2,2025_02_JAX_CIN,JAX,CIN,0.94,0.8,0.59,2.33,Brian Thomas,Dyami Brown,Travis Hunter
+2025,2,2025_02_LAC_LV,LAC,LV,0.76,0.74,0.55,2.05,Quentin Johnston,Ladd McConkey,Keenan Allen
+2025,2,2025_02_LAC_LV,LV,LAC,0.93,0.91,0.81,2.6500000000000004,Jakobi Meyers,Tre Tucker,Dont'e Thornton
+2025,2,2025_02_LA_TEN,LA,TEN,0.8,0.69,0.64,2.13,Davante Adams,Puka Nacua,Jordan Whittington
+2025,2,2025_02_LA_TEN,TEN,LA,0.86,0.73,0.48,2.07,Calvin Ridley,Elic Ayomanor,Tyler Lockett
+2025,2,2025_02_NE_MIA,MIA,NE,0.84,0.82,0.61,2.27,Tyreek Hill,Jaylen Waddle,Malik Washington
+2025,2,2025_02_NE_MIA,NE,MIA,0.72,0.65,0.52,1.8900000000000001,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,2,2025_02_NYG_DAL,DAL,NYG,0.92,0.89,0.65,2.46,CeeDee Lamb,George Pickens,Jalen Tolbert
+2025,2,2025_02_NYG_DAL,NYG,DAL,0.99,0.99,0.7,2.6799999999999997,Malik Nabers,Darius Slayton,Wan'Dale Robinson
+2025,2,2025_02_PHI_KC,KC,PHI,0.75,0.75,0.7,2.2,Tyquan Thornton,Marquise Brown,JuJu Smith-Schuster
+2025,2,2025_02_PHI_KC,PHI,KC,0.97,0.75,0.37,2.09,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,2,2025_02_SEA_PIT,PIT,SEA,0.92,0.9,0.35,2.17,Calvin Austin III,D.K. Metcalf,Roman Wilson
+2025,2,2025_02_SEA_PIT,SEA,PIT,0.69,0.65,0.4,1.7399999999999998,Cooper Kupp,Jaxon Smith-Njigba,Tory Horton
+2025,2,2025_02_SF_NO,NO,SF,1.0,0.7,0.68,2.38,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,2,2025_02_SF_NO,SF,NO,0.89,0.87,0.49,2.25,Ricky Pearsall,Jauan Jennings,Kendrick Bourne
+2025,2,2025_02_TB_HOU,HOU,TB,0.9,0.57,0.43,1.9,Nico Collins,Xavier Hutchinson,Jayden Higgins
+2025,2,2025_02_TB_HOU,TB,HOU,0.92,0.79,0.75,2.46,Emeka Egbuka,Mike Evans,Sterling Shepard
+2025,2,2025_02_WAS_GB,GB,WAS,0.74,0.59,0.54,1.87,Romeo Doubs,Matthew Golden,Dontayvion Wicks
+2025,2,2025_02_WAS_GB,WAS,GB,0.91,0.88,0.52,2.31,Terry McLaurin,Deebo Samuel,Jaylin Lane
+2025,3,2025_03_ARI_SF,ARI,SF,0.8,0.74,0.5,2.04,Marvin Harrison Jr.,Michael Wilson,Zay Jones
+2025,3,2025_03_ARI_SF,SF,ARI,0.97,0.72,0.52,2.21,Ricky Pearsall,Kendrick Bourne,Skyy Moore
+2025,3,2025_03_ATL_CAR,ATL,CAR,0.89,0.86,0.7,2.45,Darnell Mooney,Drake London,Ray-Ray McCloud
+2025,3,2025_03_ATL_CAR,CAR,ATL,0.97,0.9,0.29,2.16,David Moore,Tetairoa McMillan,Hunter Renfrow
+2025,3,2025_03_CIN_MIN,CIN,MIN,0.86,0.82,0.62,2.3,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,3,2025_03_CIN_MIN,MIN,CIN,0.83,0.8,0.75,2.38,Jalen Nailor,Justin Jefferson,Adam Thielen
+2025,3,2025_03_DAL_CHI,CHI,DAL,0.9,0.9,0.58,2.38,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,3,2025_03_DAL_CHI,DAL,CHI,0.88,0.82,0.66,2.36,Jalen Tolbert,George Pickens,KaVontae Turpin
+2025,3,2025_03_DEN_LAC,DEN,LAC,0.81,0.79,0.44,2.04,Courtland Sutton,Troy Franklin,Marvin Mims
+2025,3,2025_03_DEN_LAC,LAC,DEN,0.93,0.87,0.65,2.45,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,3,2025_03_DET_BAL,BAL,DET,0.86,0.6,0.56,2.02,Zay Flowers,Rashod Bateman,Tylan Wallace
+2025,3,2025_03_DET_BAL,DET,BAL,0.91,0.85,0.49,2.25,Jameson Williams,Amon-Ra St. Brown,Kalif Raymond
+2025,3,2025_03_GB_CLE,CLE,GB,0.83,0.74,0.65,2.2199999999999998,Jerry Jeudy,Cedric Tillman,Isaiah Bond
+2025,3,2025_03_GB_CLE,GB,CLE,0.89,0.71,0.68,2.2800000000000002,Romeo Doubs,Matthew Golden,Dontayvion Wicks
+2025,3,2025_03_HOU_JAX,HOU,JAX,0.86,0.67,0.62,2.15,Nico Collins,Christian Kirk,Xavier Hutchinson
+2025,3,2025_03_HOU_JAX,JAX,HOU,0.81,0.71,0.53,2.05,Brian Thomas,Parker Washington,Travis Hunter
+2025,3,2025_03_IND_TEN,IND,TEN,0.81,0.54,0.51,1.86,Michael Pittman Jr.,Alec Pierce,Josh Downs
+2025,3,2025_03_IND_TEN,TEN,IND,0.87,0.74,0.54,2.15,Calvin Ridley,Elic Ayomanor,Tyler Lockett
+2025,3,2025_03_KC_NYG,KC,NYG,0.76,0.69,0.68,2.13,Tyquan Thornton,JuJu Smith-Schuster,Marquise Brown
+2025,3,2025_03_KC_NYG,NYG,KC,0.92,0.77,0.76,2.45,Malik Nabers,Wan'Dale Robinson,Darius Slayton
+2025,3,2025_03_LA_PHI,LA,PHI,0.91,0.86,0.5,2.27,Puka Nacua,Davante Adams,Jordan Whittington
+2025,3,2025_03_LA_PHI,PHI,LA,0.96,0.93,0.78,2.67,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,3,2025_03_LV_WAS,LV,WAS,0.94,0.94,0.59,2.4699999999999998,Tre Tucker,Jakobi Meyers,Dont'e Thornton
+2025,3,2025_03_LV_WAS,WAS,LV,0.6,0.57,0.43,1.5999999999999999,Terry McLaurin,Chris Moore,Deebo Samuel
+2025,3,2025_03_MIA_BUF,BUF,MIA,0.75,0.7,0.43,1.88,Keon Coleman,Khalil Shakir,Josh Palmer
+2025,3,2025_03_MIA_BUF,MIA,BUF,0.87,0.87,0.54,2.2800000000000002,Jaylen Waddle,Tyreek Hill,Malik Washington
+2025,3,2025_03_NO_SEA,NO,SEA,0.85,0.74,0.7,2.29,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,3,2025_03_NO_SEA,SEA,NO,0.54,0.49,0.49,1.52,Cooper Kupp,Tory Horton,Jaxon Smith-Njigba
+2025,3,2025_03_NYJ_TB,NYJ,TB,1.0,0.78,0.7,2.48,Garrett Wilson,Arian Smith,Tyler Johnson
+2025,3,2025_03_NYJ_TB,TB,NYJ,0.72,0.64,0.61,1.9699999999999998,Mike Evans,Emeka Egbuka,Sterling Shepard
+2025,3,2025_03_PIT_NE,NE,PIT,0.76,0.62,0.53,1.91,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,3,2025_03_PIT_NE,PIT,NE,0.89,0.72,0.17,1.7799999999999998,D.K. Metcalf,Calvin Austin III,Roman Wilson
+2025,4,2025_04_BAL_KC,BAL,KC,0.87,0.8,0.4,2.07,Zay Flowers,Rashod Bateman,Tylan Wallace
+2025,4,2025_04_BAL_KC,KC,BAL,0.78,0.59,0.52,1.8900000000000001,JuJu Smith-Schuster,Xavier Worthy,Marquise Brown
+2025,4,2025_04_CAR_NE,CAR,NE,0.94,0.81,0.49,2.24,Tetairoa McMillan,Brycen Tremayne,Hunter Renfrow
+2025,4,2025_04_CAR_NE,NE,CAR,0.69,0.63,0.49,1.8099999999999998,Kayshon Boutte,Stefon Diggs,Mack Hollins
+2025,4,2025_04_CHI_LV,CHI,LV,0.76,0.76,0.6,2.12,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,4,2025_04_CHI_LV,LV,CHI,0.98,0.98,0.6,2.56,Tre Tucker,Jakobi Meyers,Dont'e Thornton
+2025,4,2025_04_CIN_DEN,CIN,DEN,0.96,0.9,0.83,2.69,Ja'Marr Chase,Andrei Iosivas,Tee Higgins
+2025,4,2025_04_CIN_DEN,DEN,CIN,0.85,0.58,0.4,1.83,Courtland Sutton,Troy Franklin,Marvin Mims
+2025,4,2025_04_CLE_DET,CLE,DET,0.82,0.55,0.42,1.79,Jerry Jeudy,Isaiah Bond,Jamari Thrash
+2025,4,2025_04_CLE_DET,DET,CLE,0.9,0.85,0.55,2.3,Amon-Ra St. Brown,Jameson Williams,Kalif Raymond
+2025,4,2025_04_GB_DAL,DAL,GB,0.9,0.81,0.61,2.32,George Pickens,Jalen Tolbert,KaVontae Turpin
+2025,4,2025_04_GB_DAL,GB,DAL,0.9,0.77,0.59,2.26,Romeo Doubs,Dontayvion Wicks,Matthew Golden
+2025,4,2025_04_IND_LA,IND,LA,0.93,0.89,0.62,2.44,Michael Pittman Jr.,Adonai Mitchell,Josh Downs
+2025,4,2025_04_IND_LA,LA,IND,0.83,0.81,0.8,2.4400000000000004,Davante Adams,Puka Nacua,Jordan Whittington
+2025,4,2025_04_JAX_SF,JAX,SF,0.85,0.79,0.56,2.2,Parker Washington,Brian Thomas,Travis Hunter
+2025,4,2025_04_JAX_SF,SF,JAX,0.73,0.67,0.56,1.96,Jauan Jennings,Kendrick Bourne,Ricky Pearsall
+2025,4,2025_04_LAC_NYG,LAC,NYG,0.92,0.92,0.78,2.62,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,4,2025_04_LAC_NYG,NYG,LAC,0.97,0.87,0.38,2.2199999999999998,Wan'Dale Robinson,Darius Slayton,Jalin Hyatt
+2025,4,2025_04_MIN_PIT,MIN,PIT,1.0,0.96,0.63,2.59,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,4,2025_04_MIN_PIT,PIT,MIN,0.79,0.51,0.34,1.6400000000000001,D.K. Metcalf,Calvin Austin III,Ben Skowronek
+2025,4,2025_04_NO_BUF,BUF,NO,0.73,0.53,0.34,1.6,Keon Coleman,Khalil Shakir,Curtis Samuel
+2025,4,2025_04_NO_BUF,NO,BUF,0.9,0.85,0.7,2.45,Brandin Cooks,Chris Olave,Rashid Shaheed
+2025,4,2025_04_NYJ_MIA,MIA,NYJ,0.9,0.48,0.47,1.8499999999999999,Jaylen Waddle,Malik Washington,Nick Westbrook-Ikhine
+2025,4,2025_04_NYJ_MIA,NYJ,MIA,0.98,0.67,0.46,2.11,Garrett Wilson,Josh Reynolds,Arian Smith
+2025,4,2025_04_PHI_TB,PHI,TB,0.96,0.91,0.54,2.41,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,4,2025_04_PHI_TB,TB,PHI,0.89,0.81,0.62,2.3200000000000003,Emeka Egbuka,Chris Godwin,Sterling Shepard
+2025,4,2025_04_SEA_ARI,ARI,SEA,1.0,0.97,0.64,2.61,Marvin Harrison Jr.,Michael Wilson,Greg Dortch
+2025,4,2025_04_SEA_ARI,SEA,ARI,0.8,0.74,0.36,1.9,Jaxon Smith-Njigba,Cooper Kupp,Tory Horton
+2025,4,2025_04_TEN_HOU,HOU,TEN,0.86,0.68,0.61,2.15,Nico Collins,Xavier Hutchinson,Christian Kirk
+2025,4,2025_04_TEN_HOU,TEN,HOU,0.82,0.72,0.54,2.08,Elic Ayomanor,Tyler Lockett,Calvin Ridley
+2025,4,2025_04_WAS_ATL,ATL,WAS,0.85,0.52,0.45,1.82,Drake London,Casey Washington,Darnell Mooney
+2025,4,2025_04_WAS_ATL,WAS,ATL,0.86,0.7,0.44,2.0,Deebo Samuel,Chris Moore,Jaylin Lane
+2025,5,2025_05_DAL_NYJ,DAL,NYJ,0.78,0.77,0.57,2.12,George Pickens,Jalen Tolbert,Ryan Flournoy
+2025,5,2025_05_DAL_NYJ,NYJ,DAL,0.94,0.74,0.56,2.24,Garrett Wilson,Josh Reynolds,Arian Smith
+2025,5,2025_05_DEN_PHI,DEN,PHI,0.95,0.59,0.54,2.08,Courtland Sutton,Troy Franklin,Pat Bryant
+2025,5,2025_05_DEN_PHI,PHI,DEN,0.98,0.93,0.72,2.63,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,5,2025_05_DET_CIN,CIN,DET,0.97,0.92,0.87,2.7600000000000002,Tee Higgins,Ja'Marr Chase,Andrei Iosivas
+2025,5,2025_05_DET_CIN,DET,CIN,0.82,0.81,0.34,1.97,Jameson Williams,Amon-Ra St. Brown,Isaac TeSlaa
+2025,5,2025_05_HOU_BAL,BAL,HOU,0.84,0.81,0.26,1.91,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,5,2025_05_HOU_BAL,HOU,BAL,0.67,0.57,0.56,1.8,Xavier Hutchinson,Nico Collins,Jayden Higgins
+2025,5,2025_05_KC_JAX,JAX,KC,0.93,0.67,0.66,2.2600000000000002,Brian Thomas,Travis Hunter,Dyami Brown
+2025,5,2025_05_KC_JAX,KC,JAX,0.77,0.66,0.52,1.9500000000000002,Xavier Worthy,JuJu Smith-Schuster,Marquise Brown
+2025,5,2025_05_LV_IND,IND,LV,0.82,0.71,0.5,2.03,Michael Pittman Jr.,Ashton Dulin,Josh Downs
+2025,5,2025_05_LV_IND,LV,IND,0.88,0.88,0.53,2.29,Tre Tucker,Jakobi Meyers,Jack Bech
+2025,5,2025_05_MIA_CAR,CAR,MIA,0.9,0.79,0.43,2.12,Tetairoa McMillan,Xavier Legette,Hunter Renfrow
+2025,5,2025_05_MIA_CAR,MIA,CAR,0.89,0.71,0.58,2.18,Jaylen Waddle,Nick Westbrook-Ikhine,Malik Washington
+2025,5,2025_05_MIN_CLE,CLE,MIN,0.9,0.57,0.4,1.87,Jerry Jeudy,Isaiah Bond,Jamari Thrash
+2025,5,2025_05_MIN_CLE,MIN,CLE,1.0,0.75,0.65,2.4,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,5,2025_05_NE_BUF,BUF,NE,0.63,0.62,0.51,1.76,Khalil Shakir,Keon Coleman,Josh Palmer
+2025,5,2025_05_NE_BUF,NE,BUF,0.62,0.58,0.5,1.7,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,5,2025_05_NYG_NO,NO,NYG,0.73,0.67,0.45,1.8499999999999999,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,5,2025_05_NYG_NO,NYG,NO,0.95,0.75,0.47,2.17,Wan'Dale Robinson,Darius Slayton,Jalin Hyatt
+2025,5,2025_05_SF_LA,LA,SF,0.93,0.85,0.66,2.44,Puka Nacua,Davante Adams,Tutu Atwell
+2025,5,2025_05_SF_LA,SF,LA,0.85,0.81,0.53,2.1900000000000004,Demarcus Robinson,Kendrick Bourne,Marquez Valdes-Scantling
+2025,5,2025_05_TB_SEA,SEA,TB,0.9,0.89,0.49,2.2800000000000002,Jaxon Smith-Njigba,Cooper Kupp,Tory Horton
+2025,5,2025_05_TB_SEA,TB,SEA,0.85,0.77,0.41,2.0300000000000002,Emeka Egbuka,Chris Godwin,Sterling Shepard
+2025,5,2025_05_TEN_ARI,ARI,TEN,0.76,0.69,0.5,1.95,Marvin Harrison Jr.,Michael Wilson,Zay Jones
+2025,5,2025_05_TEN_ARI,TEN,ARI,0.72,0.66,0.49,1.8699999999999999,Elic Ayomanor,Calvin Ridley,Chimere Dike
+2025,5,2025_05_WAS_LAC,LAC,WAS,0.82,0.79,0.58,2.19,Quentin Johnston,Ladd McConkey,Keenan Allen
+2025,5,2025_05_WAS_LAC,WAS,LAC,0.78,0.59,0.39,1.7600000000000002,Deebo Samuel,Chris Moore,Luke McCaffrey
+2025,6,2025_06_ARI_IND,ARI,IND,0.79,0.75,0.44,1.98,Zay Jones,Michael Wilson,Greg Dortch
+2025,6,2025_06_ARI_IND,IND,ARI,0.85,0.81,0.51,2.17,Michael Pittman Jr.,Alec Pierce,Josh Downs
+2025,6,2025_06_BUF_ATL,ATL,BUF,0.97,0.8,0.44,2.21,Drake London,Casey Washington,David Sills V
+2025,6,2025_06_BUF_ATL,BUF,ATL,0.86,0.6,0.49,1.95,Keon Coleman,Khalil Shakir,Tyrell Shavers
+2025,6,2025_06_CHI_WAS,CHI,WAS,0.97,0.94,0.84,2.75,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,6,2025_06_CHI_WAS,WAS,CHI,0.72,0.68,0.42,1.8199999999999998,Deebo Samuel,Chris Moore,Jaylin Lane
+2025,6,2025_06_CIN_GB,CIN,GB,1.0,0.94,0.8,2.74,Ja'Marr Chase,Andrei Iosivas,Tee Higgins
+2025,6,2025_06_CIN_GB,GB,CIN,0.85,0.69,0.46,2.0,Romeo Doubs,Matthew Golden,Malik Heath
+2025,6,2025_06_CLE_PIT,CLE,PIT,0.89,0.87,0.45,2.21,Jerry Jeudy,Isaiah Bond,Jamari Thrash
+2025,6,2025_06_CLE_PIT,PIT,CLE,0.83,0.44,0.25,1.52,D.K. Metcalf,Scott Miller,Roman Wilson
+2025,6,2025_06_DAL_CAR,CAR,DAL,0.93,0.73,0.34,2.0,Tetairoa McMillan,Xavier Legette,Brycen Tremayne
+2025,6,2025_06_DAL_CAR,DAL,CAR,0.91,0.84,0.69,2.44,Jalen Tolbert,George Pickens,Ryan Flournoy
+2025,6,2025_06_DEN_NYJ,DEN,NYJ,0.8,0.58,0.58,1.96,Courtland Sutton,Pat Bryant,Troy Franklin
+2025,6,2025_06_DEN_NYJ,NYJ,DEN,0.88,0.84,0.6,2.32,Josh Reynolds,Garrett Wilson,Arian Smith
+2025,6,2025_06_DET_KC,DET,KC,0.89,0.85,0.46,2.2,Amon-Ra St. Brown,Jameson Williams,Isaac TeSlaa
+2025,6,2025_06_DET_KC,KC,DET,0.73,0.62,0.52,1.87,Xavier Worthy,JuJu Smith-Schuster,Marquise Brown
+2025,6,2025_06_LAC_MIA,LAC,MIA,0.83,0.69,0.56,2.08,Tre Harris,Ladd McConkey,Keenan Allen
+2025,6,2025_06_LAC_MIA,MIA,LAC,0.78,0.63,0.44,1.85,Jaylen Waddle,Nick Westbrook-Ikhine,Malik Washington
+2025,6,2025_06_LA_BAL,BAL,LA,0.91,0.56,0.33,1.8000000000000003,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,6,2025_06_LA_BAL,LA,BAL,0.92,0.79,0.51,2.2199999999999998,Jordan Whittington,Davante Adams,Puka Nacua
+2025,6,2025_06_NE_NO,NE,NO,0.67,0.59,0.55,1.81,Kayshon Boutte,Stefon Diggs,Mack Hollins
+2025,6,2025_06_NE_NO,NO,NE,0.88,0.64,0.61,2.13,Chris Olave,Brandin Cooks,Rashid Shaheed
+2025,6,2025_06_PHI_NYG,NYG,PHI,0.97,0.77,0.42,2.16,Wan'Dale Robinson,Lil'Jordan Humphrey,Jalin Hyatt
+2025,6,2025_06_PHI_NYG,PHI,NYG,0.96,0.96,0.75,2.67,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,6,2025_06_SEA_JAX,JAX,SEA,0.8,0.78,0.64,2.22,Brian Thomas,Travis Hunter,Dyami Brown
+2025,6,2025_06_SEA_JAX,SEA,JAX,0.82,0.71,0.45,1.9799999999999998,Jaxon Smith-Njigba,Cooper Kupp,Tory Horton
+2025,6,2025_06_SF_TB,SF,TB,0.8,0.77,0.61,2.18,Kendrick Bourne,Jauan Jennings,Marquez Valdes-Scantling
+2025,6,2025_06_SF_TB,TB,SF,0.72,0.53,0.49,1.74,Tez Johnson,Emeka Egbuka,Kameron Johnson
+2025,6,2025_06_TEN_LV,LV,TEN,0.92,0.9,0.75,2.5700000000000003,Tre Tucker,Jakobi Meyers,Jack Bech
+2025,6,2025_06_TEN_LV,TEN,LV,0.93,0.74,0.56,2.23,Elic Ayomanor,Van Jefferson,Chimere Dike
+2025,7,2025_07_ATL_SF,ATL,SF,0.98,0.83,0.45,2.2600000000000002,Drake London,Darnell Mooney,David Sills V
+2025,7,2025_07_ATL_SF,SF,ATL,0.85,0.78,0.34,1.97,Jauan Jennings,Kendrick Bourne,Demarcus Robinson
+2025,7,2025_07_CAR_NYJ,CAR,NYJ,0.87,0.8,0.37,2.04,Tetairoa McMillan,Xavier Legette,Jalen Coker
+2025,7,2025_07_CAR_NYJ,NYJ,CAR,0.95,0.92,0.56,2.43,Josh Reynolds,Arian Smith,Allen Lazard
+2025,7,2025_07_GB_ARI,ARI,GB,0.86,0.82,0.54,2.2199999999999998,Marvin Harrison Jr.,Michael Wilson,Zay Jones
+2025,7,2025_07_GB_ARI,GB,ARI,0.89,0.73,0.41,2.0300000000000002,Romeo Doubs,Matthew Golden,Malik Heath
+2025,7,2025_07_HOU_SEA,HOU,SEA,0.78,0.63,0.51,1.9200000000000002,Xavier Hutchinson,Jayden Higgins,Nico Collins
+2025,7,2025_07_HOU_SEA,SEA,HOU,0.88,0.75,0.39,2.02,Jaxon Smith-Njigba,Cooper Kupp,Tory Horton
+2025,7,2025_07_IND_LAC,IND,LAC,0.87,0.87,0.65,2.39,Alec Pierce,Michael Pittman Jr.,Anthony Gould
+2025,7,2025_07_IND_LAC,LAC,IND,0.89,0.88,0.64,2.41,Quentin Johnston,Ladd McConkey,Keenan Allen
+2025,7,2025_07_LA_JAX,JAX,LA,0.88,0.87,0.66,2.41,Parker Washington,Travis Hunter,Brian Thomas
+2025,7,2025_07_LA_JAX,LA,JAX,0.6,0.59,0.47,1.66,Jordan Whittington,Davante Adams,Xavier Smith
+2025,7,2025_07_LV_KC,KC,LV,0.59,0.41,0.36,1.3599999999999999,Xavier Worthy,Rashee Rice,JuJu Smith-Schuster
+2025,7,2025_07_LV_KC,LV,KC,0.89,0.86,0.63,2.38,Tre Tucker,Dont'e Thornton,Jack Bech
+2025,7,2025_07_MIA_CLE,CLE,MIA,0.68,0.44,0.42,1.54,Jerry Jeudy,Isaiah Bond,Jamari Thrash
+2025,7,2025_07_MIA_CLE,MIA,CLE,0.76,0.76,0.64,2.16,Nick Westbrook-Ikhine,Jaylen Waddle,Malik Washington
+2025,7,2025_07_NE_TEN,NE,TEN,0.71,0.66,0.54,1.9100000000000001,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,7,2025_07_NE_TEN,TEN,NE,0.96,0.85,0.57,2.38,Elic Ayomanor,Van Jefferson,Chimere Dike
+2025,7,2025_07_NO_CHI,CHI,NO,0.94,0.87,0.52,2.33,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,7,2025_07_NO_CHI,NO,CHI,0.84,0.77,0.7,2.3099999999999996,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,7,2025_07_NYG_DEN,DEN,NYG,0.94,0.62,0.53,2.09,Courtland Sutton,Troy Franklin,Marvin Mims
+2025,7,2025_07_NYG_DEN,NYG,DEN,0.96,0.91,0.32,2.19,Lil'Jordan Humphrey,Wan'Dale Robinson,Jalin Hyatt
+2025,7,2025_07_PHI_MIN,MIN,PHI,0.99,0.93,0.59,2.51,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,7,2025_07_PHI_MIN,PHI,MIN,0.92,0.88,0.48,2.2800000000000002,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,7,2025_07_PIT_CIN,CIN,PIT,0.99,0.87,0.7,2.5599999999999996,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,7,2025_07_PIT_CIN,PIT,CIN,0.98,0.58,0.14,1.7000000000000002,D.K. Metcalf,Roman Wilson,Scott Miller
+2025,7,2025_07_TB_DET,DET,TB,0.91,0.85,0.44,2.2,Amon-Ra St. Brown,Jameson Williams,Kalif Raymond
+2025,7,2025_07_TB_DET,TB,DET,0.75,0.68,0.64,2.0700000000000003,Emeka Egbuka,Tez Johnson,Sterling Shepard
+2025,7,2025_07_WAS_DAL,DAL,WAS,0.84,0.78,0.49,2.1100000000000003,George Pickens,CeeDee Lamb,Jalen Tolbert
+2025,7,2025_07_WAS_DAL,WAS,DAL,0.79,0.69,0.54,2.02,Chris Moore,Jaylin Lane,Luke McCaffrey
+2025,8,2025_08_BUF_CAR,BUF,CAR,0.73,0.48,0.46,1.67,Keon Coleman,Khalil Shakir,Elijah Moore
+2025,8,2025_08_BUF_CAR,CAR,BUF,0.93,0.89,0.66,2.48,Tetairoa McMillan,Xavier Legette,Jalen Coker
+2025,8,2025_08_CHI_BAL,BAL,CHI,0.95,0.79,0.37,2.11,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,8,2025_08_CHI_BAL,CHI,BAL,0.94,0.84,0.6,2.38,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,8,2025_08_CLE_NE,CLE,NE,0.83,0.54,0.52,1.8900000000000001,Jerry Jeudy,Isaiah Bond,Gage Larvadain
+2025,8,2025_08_CLE_NE,NE,CLE,0.74,0.72,0.51,1.97,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,8,2025_08_DAL_DEN,DAL,DEN,0.8,0.72,0.46,1.98,George Pickens,CeeDee Lamb,Ryan Flournoy
+2025,8,2025_08_DAL_DEN,DEN,DAL,0.84,0.63,0.56,2.0300000000000002,Courtland Sutton,Troy Franklin,Pat Bryant
+2025,8,2025_08_GB_PIT,GB,PIT,0.8,0.66,0.56,2.02,Romeo Doubs,Matthew Golden,Christian Watson
+2025,8,2025_08_GB_PIT,PIT,GB,0.94,0.78,0.46,2.18,D.K. Metcalf,Calvin Austin III,Roman Wilson
+2025,8,2025_08_MIA_ATL,ATL,MIA,0.9,0.9,0.66,2.46,Darnell Mooney,David Sills V,KhaDarel Hodge
+2025,8,2025_08_MIA_ATL,MIA,ATL,0.78,0.65,0.62,2.0500000000000003,Jaylen Waddle,Nick Westbrook-Ikhine,Malik Washington
+2025,8,2025_08_MIN_LAC,LAC,MIN,0.59,0.58,0.52,1.69,Tre Harris,Ladd McConkey,Quentin Johnston
+2025,8,2025_08_MIN_LAC,MIN,LAC,0.88,0.86,0.69,2.4299999999999997,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,8,2025_08_NYG_PHI,NYG,PHI,0.98,0.73,0.63,2.34,Wan'Dale Robinson,Darius Slayton,Lil'Jordan Humphrey
+2025,8,2025_08_NYG_PHI,PHI,NYG,0.9,0.71,0.44,2.05,DeVonta Smith,Jahan Dotson,Darius Cooper
+2025,8,2025_08_NYJ_CIN,CIN,NYJ,0.98,0.88,0.8,2.66,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,8,2025_08_NYJ_CIN,NYJ,CIN,0.78,0.78,0.42,1.98,Allen Lazard,Tyler Johnson,Isaiah Williams
+2025,8,2025_08_SF_HOU,HOU,SF,0.82,0.71,0.44,1.9699999999999998,Jayden Higgins,Xavier Hutchinson,Jared Wayne
+2025,8,2025_08_SF_HOU,SF,HOU,0.85,0.79,0.56,2.2,Jauan Jennings,Kendrick Bourne,Demarcus Robinson
+2025,8,2025_08_TB_NO,NO,TB,0.93,0.78,0.61,2.32,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,8,2025_08_TB_NO,TB,NO,0.88,0.71,0.41,1.9999999999999998,Emeka Egbuka,Tez Johnson,Sterling Shepard
+2025,8,2025_08_TEN_IND,IND,TEN,0.81,0.79,0.64,2.24,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,8,2025_08_TEN_IND,TEN,IND,0.94,0.89,0.79,2.62,Elic Ayomanor,Chimere Dike,Van Jefferson
+2025,8,2025_08_WAS_KC,KC,WAS,0.86,0.84,0.38,2.08,Rashee Rice,Xavier Worthy,Marquise Brown
+2025,8,2025_08_WAS_KC,WAS,KC,0.74,0.51,0.47,1.72,Deebo Samuel,Luke McCaffrey,Terry McLaurin
+2025,9,2025_09_ARI_DAL,ARI,DAL,0.72,0.72,0.52,1.96,Michael Wilson,Marvin Harrison Jr.,Zay Jones
+2025,9,2025_09_ARI_DAL,DAL,ARI,0.91,0.88,0.67,2.46,George Pickens,CeeDee Lamb,Ryan Flournoy
+2025,9,2025_09_ATL_NE,ATL,NE,1.0,0.98,0.68,2.66,Darnell Mooney,Drake London,David Sills V
+2025,9,2025_09_ATL_NE,NE,ATL,0.63,0.6,0.46,1.69,Mack Hollins,Stefon Diggs,Kyle Williams
+2025,9,2025_09_BAL_MIA,BAL,MIA,0.82,0.71,0.32,1.8499999999999999,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,9,2025_09_BAL_MIA,MIA,BAL,0.8,0.7,0.67,2.17,Jaylen Waddle,Malik Washington,Nick Westbrook-Ikhine
+2025,9,2025_09_CAR_GB,CAR,GB,0.84,0.66,0.55,2.05,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,9,2025_09_CAR_GB,GB,CAR,0.92,0.66,0.42,2.0,Romeo Doubs,Christian Watson,Malik Heath
+2025,9,2025_09_CHI_CIN,CHI,CIN,1.0,0.85,0.64,2.49,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,9,2025_09_CHI_CIN,CIN,CHI,0.99,0.84,0.82,2.65,Ja'Marr Chase,Andrei Iosivas,Tee Higgins
+2025,9,2025_09_DEN_HOU,DEN,HOU,0.92,0.79,0.57,2.28,Courtland Sutton,Troy Franklin,Pat Bryant
+2025,9,2025_09_DEN_HOU,HOU,DEN,0.79,0.63,0.56,1.98,Nico Collins,Xavier Hutchinson,Christian Kirk
+2025,9,2025_09_IND_PIT,IND,PIT,0.91,0.88,0.67,2.46,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,9,2025_09_IND_PIT,PIT,IND,0.82,0.56,0.47,1.8499999999999999,D.K. Metcalf,Calvin Austin III,Roman Wilson
+2025,9,2025_09_JAX_LV,JAX,LV,0.88,0.65,0.6,2.13,Parker Washington,Brian Thomas,Dyami Brown
+2025,9,2025_09_JAX_LV,LV,JAX,0.97,0.89,0.3,2.1599999999999997,Tre Tucker,Jakobi Meyers,Tyler Lockett
+2025,9,2025_09_KC_BUF,BUF,KC,0.68,0.61,0.47,1.76,Keon Coleman,Khalil Shakir,Tyrell Shavers
+2025,9,2025_09_KC_BUF,KC,BUF,0.83,0.82,0.43,2.08,Xavier Worthy,Rashee Rice,Marquise Brown
+2025,9,2025_09_LAC_TEN,LAC,TEN,0.69,0.68,0.46,1.83,Ladd McConkey,Quentin Johnston,Tre Harris
+2025,9,2025_09_LAC_TEN,TEN,LAC,0.87,0.83,0.64,2.34,Chimere Dike,Van Jefferson,Elic Ayomanor
+2025,9,2025_09_MIN_DET,DET,MIN,0.95,0.91,0.45,2.31,Amon-Ra St. Brown,Jameson Williams,Kalif Raymond
+2025,9,2025_09_MIN_DET,MIN,DET,0.95,0.92,0.53,2.4000000000000004,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,9,2025_09_NO_LA,LA,NO,0.6,0.49,0.44,1.5299999999999998,Davante Adams,Puka Nacua,Jordan Whittington
+2025,9,2025_09_NO_LA,NO,LA,0.88,0.83,0.56,2.27,Chris Olave,Rashid Shaheed,Brandin Cooks
+2025,9,2025_09_SEA_WAS,SEA,WAS,0.73,0.71,0.67,2.11,Tory Horton,Cody White,Jaxon Smith-Njigba
+2025,9,2025_09_SEA_WAS,WAS,SEA,0.74,0.68,0.63,2.05,Chris Moore,Deebo Samuel,Jaylin Lane
+2025,9,2025_09_SF_NYG,NYG,SF,1.0,0.91,0.89,2.8000000000000003,Wan'Dale Robinson,Ray-Ray McCloud,Darius Slayton
+2025,9,2025_09_SF_NYG,SF,NYG,0.79,0.73,0.33,1.85,Jauan Jennings,Kendrick Bourne,Demarcus Robinson
+2025,10,2025_10_ARI_SEA,ARI,SEA,0.92,0.91,0.39,2.22,Michael Wilson,Marvin Harrison Jr.,Greg Dortch
+2025,10,2025_10_ARI_SEA,SEA,ARI,0.73,0.53,0.42,1.68,Cody White,Cooper Kupp,Jaxon Smith-Njigba
+2025,10,2025_10_ATL_IND,ATL,IND,0.98,0.9,0.49,2.37,Drake London,Darnell Mooney,David Sills V
+2025,10,2025_10_ATL_IND,IND,ATL,0.95,0.81,0.47,2.23,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,10,2025_10_BAL_MIN,BAL,MIN,0.83,0.61,0.27,1.71,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,10,2025_10_BAL_MIN,MIN,BAL,1.0,0.95,0.68,2.63,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,10,2025_10_BUF_MIA,BUF,MIA,0.66,0.62,0.37,1.65,Khalil Shakir,Keon Coleman,Elijah Moore
+2025,10,2025_10_BUF_MIA,MIA,BUF,0.83,0.47,0.45,1.7499999999999998,Jaylen Waddle,Nick Westbrook-Ikhine,Malik Washington
+2025,10,2025_10_CLE_NYJ,CLE,NYJ,0.96,0.73,0.3,1.99,Jerry Jeudy,Cedric Tillman,Jamari Thrash
+2025,10,2025_10_CLE_NYJ,NYJ,CLE,0.67,0.63,0.43,1.73,Arian Smith,Tyler Johnson,Isaiah Williams
+2025,10,2025_10_DET_WAS,DET,WAS,0.87,0.77,0.54,2.18,Jameson Williams,Amon-Ra St. Brown,Kalif Raymond
+2025,10,2025_10_DET_WAS,WAS,DET,0.78,0.39,0.28,1.45,Deebo Samuel,Treylon Burks,Jaylin Lane
+2025,10,2025_10_JAX_HOU,HOU,JAX,0.89,0.57,0.53,1.99,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,10,2025_10_JAX_HOU,JAX,HOU,0.87,0.71,0.44,2.02,Parker Washington,Tim Patrick,Jakobi Meyers
+2025,10,2025_10_LA_SF,LA,SF,0.52,0.51,0.49,1.52,Puka Nacua,Davante Adams,Xavier Smith
+2025,10,2025_10_LA_SF,SF,LA,0.92,0.68,0.46,2.06,Jauan Jennings,Kendrick Bourne,Demarcus Robinson
+2025,10,2025_10_LV_DEN,DEN,LV,0.87,0.74,0.49,2.0999999999999996,Courtland Sutton,Troy Franklin,Pat Bryant
+2025,10,2025_10_LV_DEN,LV,DEN,1.0,0.62,0.57,2.19,Tre Tucker,Dont'e Thornton,Tyler Lockett
+2025,10,2025_10_NE_TB,NE,TB,0.79,0.59,0.56,1.94,Mack Hollins,Stefon Diggs,Kyle Williams
+2025,10,2025_10_NE_TB,TB,NE,0.88,0.83,0.65,2.36,Emeka Egbuka,Tez Johnson,Sterling Shepard
+2025,10,2025_10_NO_CAR,CAR,NO,0.91,0.75,0.7,2.3600000000000003,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,10,2025_10_NO_CAR,NO,CAR,0.87,0.54,0.5,1.9100000000000001,Devaughn Vele,Chris Olave,Brandin Cooks
+2025,10,2025_10_NYG_CHI,CHI,NYG,0.78,0.62,0.57,1.9699999999999998,Rome Odunze,D.J. Moore,Olamide Zaccheaus
+2025,10,2025_10_NYG_CHI,NYG,CHI,0.99,0.62,0.38,1.9899999999999998,Wan'Dale Robinson,Darius Slayton,Gunner Olszewski
+2025,10,2025_10_PHI_GB,GB,PHI,0.82,0.65,0.62,2.09,Christian Watson,Dontayvion Wicks,Romeo Doubs
+2025,10,2025_10_PHI_GB,PHI,GB,0.92,0.78,0.3,2.0,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,10,2025_10_PIT_LAC,LAC,PIT,0.82,0.71,0.51,2.04,Quentin Johnston,Ladd McConkey,Keenan Allen
+2025,10,2025_10_PIT_LAC,PIT,LAC,0.92,0.73,0.35,2.0,D.K. Metcalf,Calvin Austin III,Roman Wilson
+2025,11,2025_11_BAL_CLE,BAL,CLE,0.89,0.69,0.43,2.0100000000000002,Zay Flowers,DeAndre Hopkins,Tylan Wallace
+2025,11,2025_11_BAL_CLE,CLE,BAL,0.82,0.78,0.42,2.02,Jerry Jeudy,Cedric Tillman,Isaiah Bond
+2025,11,2025_11_CAR_ATL,ATL,CAR,0.92,0.92,0.56,2.4000000000000004,Darnell Mooney,Drake London,David Sills V
+2025,11,2025_11_CAR_ATL,CAR,ATL,0.86,0.68,0.55,2.09,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,11,2025_11_CHI_MIN,CHI,MIN,0.81,0.76,0.44,2.0100000000000002,D.J. Moore,Rome Odunze,Luther Burden
+2025,11,2025_11_CHI_MIN,MIN,CHI,1.0,0.96,0.6,2.56,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,11,2025_11_CIN_PIT,CIN,PIT,0.97,0.92,0.74,2.63,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,11,2025_11_CIN_PIT,PIT,CIN,0.86,0.57,0.29,1.72,D.K. Metcalf,Roman Wilson,Calvin Austin III
+2025,11,2025_11_DAL_LV,DAL,LV,0.73,0.67,0.43,1.8299999999999998,CeeDee Lamb,George Pickens,Ryan Flournoy
+2025,11,2025_11_DAL_LV,LV,DAL,0.97,0.47,0.38,1.8199999999999998,Tre Tucker,Tyler Lockett,Dont'e Thornton
+2025,11,2025_11_DET_PHI,DET,PHI,0.97,0.95,0.64,2.56,Amon-Ra St. Brown,Jameson Williams,Kalif Raymond
+2025,11,2025_11_DET_PHI,PHI,DET,0.97,0.93,0.32,2.2199999999999998,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,11,2025_11_GB_NYG,GB,NYG,0.78,0.76,0.56,2.1,Christian Watson,Romeo Doubs,Dontayvion Wicks
+2025,11,2025_11_GB_NYG,NYG,GB,0.97,0.79,0.61,2.37,Wan'Dale Robinson,Isaiah Hodgins,Jalin Hyatt
+2025,11,2025_11_HOU_TEN,HOU,TEN,0.84,0.61,0.53,1.98,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,11,2025_11_HOU_TEN,TEN,HOU,0.92,0.85,0.56,2.33,Van Jefferson,Elic Ayomanor,Mason Kinsey
+2025,11,2025_11_KC_DEN,DEN,KC,0.92,0.66,0.56,2.14,Courtland Sutton,Troy Franklin,Pat Bryant
+2025,11,2025_11_KC_DEN,KC,DEN,0.76,0.76,0.43,1.95,Xavier Worthy,Rashee Rice,Marquise Brown
+2025,11,2025_11_LAC_JAX,JAX,LAC,0.76,0.65,0.58,1.9900000000000002,Parker Washington,Jakobi Meyers,Tim Patrick
+2025,11,2025_11_LAC_JAX,LAC,JAX,0.9,0.75,0.62,2.27,Quentin Johnston,Keenan Allen,Ladd McConkey
+2025,11,2025_11_NYJ_NE,NE,NYJ,0.85,0.69,0.67,2.21,Mack Hollins,Stefon Diggs,Kyle Williams
+2025,11,2025_11_NYJ_NE,NYJ,NE,0.82,0.74,0.53,2.09,John Metchie,Isaiah Williams,Tyler Johnson
+2025,11,2025_11_SEA_LA,LA,SEA,0.86,0.67,0.49,2.02,Davante Adams,Puka Nacua,Jordan Whittington
+2025,11,2025_11_SEA_LA,SEA,LA,0.83,0.81,0.54,2.18,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,11,2025_11_SF_ARI,ARI,SF,0.82,0.72,0.66,2.2,Michael Wilson,Xavier Weaver,Greg Dortch
+2025,11,2025_11_SF_ARI,SF,ARI,0.75,0.75,0.49,1.99,Ricky Pearsall,Jauan Jennings,Demarcus Robinson
+2025,11,2025_11_TB_BUF,BUF,TB,0.54,0.54,0.5,1.58,Tyrell Shavers,Khalil Shakir,Curtis Samuel
+2025,11,2025_11_TB_BUF,TB,BUF,0.94,0.83,0.66,2.43,Emeka Egbuka,Tez Johnson,Sterling Shepard
+2025,11,2025_11_WAS_MIA,MIA,WAS,0.84,0.5,0.3,1.64,Jaylen Waddle,Malik Washington,Cedrick Wilson Jr.
+2025,11,2025_11_WAS_MIA,WAS,MIA,0.82,0.75,0.36,1.9299999999999997,Chris Moore,Deebo Samuel,Robbie Chosen
+2025,12,2025_12_ATL_NO,ATL,NO,0.7,0.66,0.27,1.63,David Sills V,Darnell Mooney,Dylan Drummond
+2025,12,2025_12_ATL_NO,NO,ATL,0.89,0.8,0.7,2.3899999999999997,Devaughn Vele,Chris Olave,Mason Tipton
+2025,12,2025_12_BUF_HOU,BUF,HOU,0.67,0.55,0.5,1.7200000000000002,Khalil Shakir,Gabriel Davis,Josh Palmer
+2025,12,2025_12_BUF_HOU,HOU,BUF,0.75,0.58,0.36,1.69,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,12,2025_12_CAR_SF,CAR,SF,0.91,0.83,0.67,2.41,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,12,2025_12_CAR_SF,SF,CAR,0.9,0.76,0.54,2.2,Jauan Jennings,Ricky Pearsall,Demarcus Robinson
+2025,12,2025_12_CLE_LV,CLE,LV,0.65,0.53,0.29,1.4700000000000002,Jerry Jeudy,Cedric Tillman,Isaiah Bond
+2025,12,2025_12_CLE_LV,LV,CLE,0.95,0.76,0.38,2.09,Tre Tucker,Tyler Lockett,Dont'e Thornton
+2025,12,2025_12_IND_KC,IND,KC,0.96,0.82,0.43,2.21,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,12,2025_12_IND_KC,KC,IND,0.77,0.62,0.47,1.86,Xavier Worthy,Rashee Rice,JuJu Smith-Schuster
+2025,12,2025_12_JAX_ARI,ARI,JAX,0.82,0.68,0.63,2.13,Michael Wilson,Xavier Weaver,Greg Dortch
+2025,12,2025_12_JAX_ARI,JAX,ARI,0.84,0.84,0.47,2.15,Parker Washington,Jakobi Meyers,Tim Patrick
+2025,12,2025_12_MIN_GB,GB,MIN,0.74,0.73,0.48,1.95,Christian Watson,Romeo Doubs,Dontayvion Wicks
+2025,12,2025_12_MIN_GB,MIN,GB,1.0,0.98,0.45,2.43,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,12,2025_12_NE_CIN,CIN,NE,0.83,0.77,0.74,2.34,Andrei Iosivas,Tee Higgins,Mitchell Tinsley
+2025,12,2025_12_NE_CIN,NE,CIN,0.86,0.8,0.48,2.14,Mack Hollins,Kayshon Boutte,Stefon Diggs
+2025,12,2025_12_NYG_DET,DET,NYG,0.97,0.97,0.41,2.35,Amon-Ra St. Brown,Jameson Williams,Isaac TeSlaa
+2025,12,2025_12_NYG_DET,NYG,DET,0.83,0.66,0.63,2.12,Wan'Dale Robinson,Isaiah Hodgins,Darius Slayton
+2025,12,2025_12_NYJ_BAL,BAL,NYJ,0.84,0.54,0.4,1.7799999999999998,Zay Flowers,DeAndre Hopkins,Devontez Walker
+2025,12,2025_12_NYJ_BAL,NYJ,BAL,0.86,0.85,0.41,2.12,John Metchie,Adonai Mitchell,Allen Lazard
+2025,12,2025_12_PHI_DAL,DAL,PHI,0.85,0.78,0.47,2.0999999999999996,CeeDee Lamb,George Pickens,KaVontae Turpin
+2025,12,2025_12_PHI_DAL,PHI,DAL,0.95,0.94,0.54,2.4299999999999997,DeVonta Smith,A.J. Brown,Jahan Dotson
+2025,12,2025_12_PIT_CHI,CHI,PIT,0.78,0.77,0.51,2.06,Rome Odunze,D.J. Moore,Luther Burden
+2025,12,2025_12_PIT_CHI,PIT,CHI,0.85,0.46,0.36,1.67,D.K. Metcalf,Calvin Austin III,Ben Skowronek
+2025,12,2025_12_SEA_TEN,SEA,TEN,0.79,0.77,0.56,2.12,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,12,2025_12_SEA_TEN,TEN,SEA,0.91,0.8,0.45,2.16,Van Jefferson,Chimere Dike,James Proche
+2025,12,2025_12_TB_LA,LA,TB,0.82,0.77,0.61,2.1999999999999997,Puka Nacua,Davante Adams,Jordan Whittington
+2025,12,2025_12_TB_LA,TB,LA,0.9,0.86,0.59,2.35,Emeka Egbuka,Tez Johnson,Sterling Shepard
+2025,13,2025_13_ARI_TB,ARI,TB,0.93,0.61,0.49,2.0300000000000002,Michael Wilson,Marvin Harrison Jr.,Xavier Weaver
+2025,13,2025_13_ARI_TB,TB,ARI,0.85,0.66,0.57,2.08,Emeka Egbuka,Chris Godwin,Tez Johnson
+2025,13,2025_13_ATL_NYJ,ATL,NYJ,0.96,0.84,0.3,2.0999999999999996,Darnell Mooney,David Sills V,Dylan Drummond
+2025,13,2025_13_ATL_NYJ,NYJ,ATL,0.97,0.86,0.39,2.22,John Metchie,Adonai Mitchell,Isaiah Williams
+2025,13,2025_13_BUF_PIT,BUF,PIT,0.61,0.58,0.49,1.68,Tyrell Shavers,Gabriel Davis,Khalil Shakir
+2025,13,2025_13_BUF_PIT,PIT,BUF,0.86,0.49,0.44,1.79,D.K. Metcalf,Calvin Austin III,Roman Wilson
+2025,13,2025_13_CHI_PHI,CHI,PHI,0.91,0.8,0.51,2.2199999999999998,D.J. Moore,Rome Odunze,Luther Burden
+2025,13,2025_13_CHI_PHI,PHI,CHI,0.96,0.94,0.59,2.4899999999999998,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,13,2025_13_CIN_BAL,BAL,CIN,0.95,0.73,0.38,2.06,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,13,2025_13_CIN_BAL,CIN,BAL,0.99,0.94,0.67,2.6,Ja'Marr Chase,Andrei Iosivas,Mitchell Tinsley
+2025,13,2025_13_DEN_WAS,DEN,WAS,0.81,0.7,0.53,2.04,Courtland Sutton,Pat Bryant,Troy Franklin
+2025,13,2025_13_DEN_WAS,WAS,DEN,0.7,0.66,0.51,1.8699999999999999,Deebo Samuel,Treylon Burks,Terry McLaurin
+2025,13,2025_13_GB_DET,DET,GB,0.94,0.92,0.65,2.51,Jameson Williams,Isaac TeSlaa,Tom Kennedy
+2025,13,2025_13_GB_DET,GB,DET,0.84,0.73,0.49,2.0599999999999996,Romeo Doubs,Christian Watson,Dontayvion Wicks
+2025,13,2025_13_HOU_IND,HOU,IND,0.75,0.58,0.55,1.8800000000000001,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,13,2025_13_HOU_IND,IND,HOU,0.96,0.83,0.57,2.36,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,13,2025_13_JAX_TEN,JAX,TEN,0.92,0.75,0.54,2.21,Jakobi Meyers,Brian Thomas,Austin Trammell
+2025,13,2025_13_JAX_TEN,TEN,JAX,0.85,0.76,0.75,2.36,Elic Ayomanor,Chimere Dike,Van Jefferson
+2025,13,2025_13_KC_DAL,DAL,KC,0.81,0.74,0.38,1.9300000000000002,CeeDee Lamb,George Pickens,Ryan Flournoy
+2025,13,2025_13_KC_DAL,KC,DAL,0.89,0.88,0.44,2.21,Rashee Rice,Xavier Worthy,Marquise Brown
+2025,13,2025_13_LA_CAR,CAR,LA,0.73,0.67,0.55,1.95,Tetairoa McMillan,Xavier Legette,Jalen Coker
+2025,13,2025_13_LA_CAR,LA,CAR,0.75,0.73,0.38,1.8599999999999999,Davante Adams,Puka Nacua,Xavier Smith
+2025,13,2025_13_LV_LAC,LAC,LV,0.76,0.67,0.6,2.0300000000000002,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,13,2025_13_LV_LAC,LV,LAC,0.96,0.56,0.52,2.04,Tre Tucker,Jack Bech,Tyler Lockett
+2025,13,2025_13_MIN_SEA,MIN,SEA,0.96,0.92,0.69,2.57,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,13,2025_13_MIN_SEA,SEA,MIN,0.82,0.76,0.48,2.06,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,13,2025_13_NO_MIA,MIA,NO,0.92,0.6,0.47,1.99,Jaylen Waddle,Malik Washington,Darren Waller
+2025,13,2025_13_NO_MIA,NO,MIA,0.88,0.88,0.85,2.61,Devaughn Vele,Chris Olave,Mason Tipton
+2025,13,2025_13_NYG_NE,NE,NYG,0.75,0.75,0.48,1.98,Kayshon Boutte,Mack Hollins,Stefon Diggs
+2025,13,2025_13_NYG_NE,NYG,NE,1.0,0.89,0.76,2.6500000000000004,Wan'Dale Robinson,Isaiah Hodgins,Darius Slayton
+2025,13,2025_13_SF_CLE,CLE,SF,0.84,0.63,0.37,1.8399999999999999,Jerry Jeudy,Cedric Tillman,Malachi Corley
+2025,13,2025_13_SF_CLE,SF,CLE,0.87,0.81,0.43,2.1100000000000003,Ricky Pearsall,Jauan Jennings,Demarcus Robinson
+2025,14,2025_14_CHI_GB,CHI,GB,0.83,0.79,0.71,2.33,D.J. Moore,Olamide Zaccheaus,Luther Burden
+2025,14,2025_14_CHI_GB,GB,CHI,0.83,0.81,0.47,2.1100000000000003,Christian Watson,Romeo Doubs,Jayden Reed
+2025,14,2025_14_CIN_BUF,BUF,CIN,0.58,0.56,0.5,1.6400000000000001,Gabriel Davis,Tyrell Shavers,Khalil Shakir
+2025,14,2025_14_CIN_BUF,CIN,BUF,1.0,0.73,0.65,2.38,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,14,2025_14_DAL_DET,DAL,DET,0.84,0.65,0.52,2.01,George Pickens,Ryan Flournoy,KaVontae Turpin
+2025,14,2025_14_DAL_DET,DET,DAL,0.92,0.92,0.77,2.6100000000000003,Jameson Williams,Amon-Ra St. Brown,Isaac TeSlaa
+2025,14,2025_14_DEN_LV,DEN,LV,0.65,0.47,0.38,1.5,Courtland Sutton,Pat Bryant,Lil'Jordan Humphrey
+2025,14,2025_14_DEN_LV,LV,DEN,0.94,0.82,0.6,2.36,Tre Tucker,Jack Bech,Tyler Lockett
+2025,14,2025_14_HOU_KC,HOU,KC,0.81,0.6,0.4,1.81,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,14,2025_14_HOU_KC,KC,HOU,0.78,0.77,0.38,1.9300000000000002,Rashee Rice,Xavier Worthy,JuJu Smith-Schuster
+2025,14,2025_14_IND_JAX,IND,JAX,0.87,0.83,0.66,2.36,Michael Pittman Jr.,Alec Pierce,Josh Downs
+2025,14,2025_14_IND_JAX,JAX,IND,0.83,0.83,0.66,2.32,Jakobi Meyers,Brian Thomas,Tim Patrick
+2025,14,2025_14_LA_ARI,ARI,LA,0.79,0.79,0.4,1.98,Michael Wilson,Andre Baccellia,Jalen Brooks
+2025,14,2025_14_LA_ARI,LA,ARI,0.46,0.44,0.43,1.33,Konata Mumpfield,Puka Nacua,Davante Adams
+2025,14,2025_14_MIA_NYJ,MIA,NYJ,0.78,0.52,0.34,1.6400000000000001,Jaylen Waddle,Malik Washington,Nick Westbrook-Ikhine
+2025,14,2025_14_MIA_NYJ,NYJ,MIA,0.97,0.91,0.57,2.4499999999999997,John Metchie,Adonai Mitchell,Isaiah Williams
+2025,14,2025_14_NO_TB,NO,TB,0.93,0.93,0.45,2.31,Devaughn Vele,Chris Olave,Mason Tipton
+2025,14,2025_14_NO_TB,TB,NO,0.88,0.69,0.57,2.1399999999999997,Emeka Egbuka,Chris Godwin,Sterling Shepard
+2025,14,2025_14_PHI_LAC,LAC,PHI,0.86,0.76,0.57,2.19,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,14,2025_14_PHI_LAC,PHI,LAC,0.97,0.97,0.49,2.4299999999999997,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,14,2025_14_PIT_BAL,BAL,PIT,0.92,0.86,0.16,1.94,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,14,2025_14_PIT_BAL,PIT,BAL,0.83,0.48,0.31,1.62,D.K. Metcalf,Adam Thielen,Calvin Austin III
+2025,14,2025_14_SEA_ATL,ATL,SEA,0.94,0.77,0.61,2.32,David Sills V,Darnell Mooney,Dylan Drummond
+2025,14,2025_14_SEA_ATL,SEA,ATL,0.72,0.69,0.51,1.92,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,14,2025_14_TEN_CLE,CLE,TEN,0.88,0.64,0.48,2.0,Jerry Jeudy,Cedric Tillman,Isaiah Bond
+2025,14,2025_14_TEN_CLE,TEN,CLE,0.8,0.73,0.67,2.2,Elic Ayomanor,Van Jefferson,Chimere Dike
+2025,14,2025_14_WAS_MIN,MIN,WAS,0.8,0.67,0.58,2.0500000000000003,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,14,2025_14_WAS_MIN,WAS,MIN,0.62,0.62,0.52,1.76,Noah Brown,Terry McLaurin,Deebo Samuel
+2025,15,2025_15_ARI_HOU,ARI,HOU,0.85,0.71,0.21,1.77,Michael Wilson,Jalen Brooks,Trent Sherfield
+2025,15,2025_15_ARI_HOU,HOU,ARI,0.73,0.72,0.3,1.75,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,15,2025_15_ATL_TB,ATL,TB,0.94,0.92,0.39,2.25,David Sills V,Darnell Mooney,Dylan Drummond
+2025,15,2025_15_ATL_TB,TB,ATL,0.96,0.64,0.55,2.1500000000000004,Chris Godwin,Emeka Egbuka,Mike Evans
+2025,15,2025_15_BAL_CIN,BAL,CIN,0.78,0.61,0.32,1.7100000000000002,Zay Flowers,Devontez Walker,DeAndre Hopkins
+2025,15,2025_15_BAL_CIN,CIN,BAL,0.97,0.89,0.45,2.31,Ja'Marr Chase,Andrei Iosivas,Mitchell Tinsley
+2025,15,2025_15_BUF_NE,BUF,NE,0.69,0.56,0.5,1.75,Khalil Shakir,Keon Coleman,Tyrell Shavers
+2025,15,2025_15_BUF_NE,NE,BUF,0.79,0.75,0.5,2.04,Mack Hollins,Kayshon Boutte,Stefon Diggs
+2025,15,2025_15_CAR_NO,CAR,NO,0.84,0.74,0.68,2.2600000000000002,Tetairoa McMillan,Xavier Legette,Jalen Coker
+2025,15,2025_15_CAR_NO,NO,CAR,0.84,0.8,0.55,2.1900000000000004,Chris Olave,Mason Tipton,Devaughn Vele
+2025,15,2025_15_CLE_CHI,CHI,CLE,0.88,0.82,0.39,2.09,D.J. Moore,Olamide Zaccheaus,Luther Burden
+2025,15,2025_15_CLE_CHI,CLE,CHI,0.96,0.68,0.54,2.18,Jerry Jeudy,Isaiah Bond,Gage Larvadain
+2025,15,2025_15_DET_LA,DET,LA,0.95,0.91,0.62,2.48,Amon-Ra St. Brown,Jameson Williams,Isaac TeSlaa
+2025,15,2025_15_DET_LA,LA,DET,0.56,0.46,0.44,1.46,Puka Nacua,Davante Adams,Konata Mumpfield
+2025,15,2025_15_GB_DEN,DEN,GB,0.88,0.68,0.5,2.06,Courtland Sutton,Lil'Jordan Humphrey,Troy Franklin
+2025,15,2025_15_GB_DEN,GB,DEN,0.76,0.65,0.42,1.83,Romeo Doubs,Jayden Reed,Dontayvion Wicks
+2025,15,2025_15_IND_SEA,IND,SEA,1.0,0.93,0.72,2.6500000000000004,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,15,2025_15_IND_SEA,SEA,IND,0.92,0.75,0.68,2.35,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,15,2025_15_LAC_KC,KC,LAC,0.85,0.67,0.52,2.04,Rashee Rice,Xavier Worthy,JuJu Smith-Schuster
+2025,15,2025_15_LAC_KC,LAC,KC,0.85,0.74,0.42,2.01,Tre Harris,Ladd McConkey,Keenan Allen
+2025,15,2025_15_LV_PHI,LV,PHI,0.93,0.81,0.76,2.5,Tre Tucker,Jack Bech,Tyler Lockett
+2025,15,2025_15_LV_PHI,PHI,LV,0.72,0.54,0.52,1.78,A.J. Brown,Jahan Dotson,DeVonta Smith
+2025,15,2025_15_MIA_PIT,MIA,PIT,0.84,0.56,0.36,1.7599999999999998,Jaylen Waddle,Malik Washington,Nick Westbrook-Ikhine
+2025,15,2025_15_MIA_PIT,PIT,MIA,0.79,0.58,0.52,1.8900000000000001,D.K. Metcalf,Adam Thielen,Marquez Valdes-Scantling
+2025,15,2025_15_MIN_DAL,DAL,MIN,0.86,0.86,0.64,2.36,George Pickens,CeeDee Lamb,Ryan Flournoy
+2025,15,2025_15_MIN_DAL,MIN,DAL,0.96,0.64,0.51,2.1100000000000003,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,15,2025_15_NYJ_JAX,JAX,NYJ,0.87,0.77,0.45,2.0900000000000003,Jakobi Meyers,Brian Thomas,Parker Washington
+2025,15,2025_15_NYJ_JAX,NYJ,JAX,0.79,0.74,0.6,2.13,Adonai Mitchell,John Metchie,Isaiah Williams
+2025,15,2025_15_TEN_SF,SF,TEN,0.81,0.58,0.45,1.84,Jauan Jennings,Ricky Pearsall,Kendrick Bourne
+2025,15,2025_15_TEN_SF,TEN,SF,0.81,0.7,0.58,2.09,Elic Ayomanor,Chimere Dike,Van Jefferson
+2025,15,2025_15_WAS_NYG,NYG,WAS,0.99,0.87,0.87,2.73,Wan'Dale Robinson,Isaiah Hodgins,Darius Slayton
+2025,15,2025_15_WAS_NYG,WAS,NYG,0.75,0.61,0.46,1.8199999999999998,Terry McLaurin,Deebo Samuel,Jaylin Lane
+2025,16,2025_16_ATL_ARI,ARI,ATL,0.86,0.51,0.44,1.81,Michael Wilson,Marvin Harrison Jr.,Xavier Weaver
+2025,16,2025_16_ATL_ARI,ATL,ARI,0.7,0.69,0.42,1.8099999999999998,Darnell Mooney,Drake London,David Sills V
+2025,16,2025_16_BUF_CLE,BUF,CLE,0.7,0.58,0.48,1.7599999999999998,Josh Palmer,Tyrell Shavers,Khalil Shakir
+2025,16,2025_16_BUF_CLE,CLE,BUF,0.73,0.48,0.47,1.68,Jerry Jeudy,Isaiah Bond,Cedric Tillman
+2025,16,2025_16_CIN_MIA,CIN,MIA,0.87,0.62,0.51,2.0,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,16,2025_16_CIN_MIA,MIA,CIN,0.71,0.53,0.53,1.77,Jaylen Waddle,Malik Washington,Cedrick Wilson Jr.
+2025,16,2025_16_GB_CHI,CHI,GB,0.95,0.86,0.27,2.08,D.J. Moore,Olamide Zaccheaus,Jahdae Walker
+2025,16,2025_16_GB_CHI,GB,CHI,0.64,0.62,0.62,1.88,Jayden Reed,Romeo Doubs,Christian Watson
+2025,16,2025_16_JAX_DEN,DEN,JAX,0.94,0.64,0.64,2.22,Courtland Sutton,Pat Bryant,Troy Franklin
+2025,16,2025_16_JAX_DEN,JAX,DEN,0.86,0.73,0.56,2.15,Jakobi Meyers,Brian Thomas,Parker Washington
+2025,16,2025_16_KC_TEN,KC,TEN,0.91,0.84,0.53,2.2800000000000002,JuJu Smith-Schuster,Xavier Worthy,Marquise Brown
+2025,16,2025_16_KC_TEN,TEN,KC,0.68,0.59,0.56,1.83,Van Jefferson,Chimere Dike,Elic Ayomanor
+2025,16,2025_16_LAC_DAL,DAL,LAC,0.88,0.86,0.4,2.14,George Pickens,CeeDee Lamb,Ryan Flournoy
+2025,16,2025_16_LAC_DAL,LAC,DAL,0.75,0.58,0.47,1.8,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,16,2025_16_LA_SEA,LA,SEA,0.78,0.46,0.24,1.48,Puka Nacua,Konata Mumpfield,Xavier Smith
+2025,16,2025_16_LA_SEA,SEA,LA,0.96,0.93,0.54,2.43,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,16,2025_16_LV_HOU,HOU,LV,0.8,0.62,0.54,1.96,Nico Collins,Christian Kirk,Jayden Higgins
+2025,16,2025_16_LV_HOU,LV,HOU,1.0,0.72,0.28,2.0,Tre Tucker,Jack Bech,Tyler Lockett
+2025,16,2025_16_MIN_NYG,MIN,NYG,0.95,0.67,0.62,2.24,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,16,2025_16_MIN_NYG,NYG,MIN,0.98,0.79,0.36,2.13,Wan'Dale Robinson,Darius Slayton,Isaiah Hodgins
+2025,16,2025_16_NE_BAL,BAL,NE,0.89,0.69,0.36,1.94,Zay Flowers,Rashod Bateman,DeAndre Hopkins
+2025,16,2025_16_NE_BAL,NE,BAL,0.66,0.59,0.58,1.83,Mack Hollins,Stefon Diggs,Kayshon Boutte
+2025,16,2025_16_NYJ_NO,NO,NYJ,0.86,0.78,0.5,2.14,Kevin Austin,Chris Olave,Mason Tipton
+2025,16,2025_16_NYJ_NO,NYJ,NO,0.86,0.86,0.77,2.49,Adonai Mitchell,John Metchie,Isaiah Williams
+2025,16,2025_16_PHI_WAS,PHI,WAS,0.87,0.86,0.66,2.39,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,16,2025_16_PHI_WAS,WAS,PHI,0.83,0.83,0.81,2.4699999999999998,Treylon Burks,Terry McLaurin,Deebo Samuel
+2025,16,2025_16_PIT_DET,DET,PIT,0.97,0.95,0.55,2.4699999999999998,Amon-Ra St. Brown,Jameson Williams,Isaac TeSlaa
+2025,16,2025_16_PIT_DET,PIT,DET,0.88,0.43,0.42,1.73,D.K. Metcalf,Adam Thielen,Marquez Valdes-Scantling
+2025,16,2025_16_SF_IND,IND,SF,0.97,0.93,0.78,2.6799999999999997,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,16,2025_16_SF_IND,SF,IND,0.82,0.7,0.44,1.96,Jauan Jennings,Kendrick Bourne,Demarcus Robinson
+2025,16,2025_16_TB_CAR,CAR,TB,0.87,0.81,0.65,2.33,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,16,2025_16_TB_CAR,TB,CAR,0.66,0.64,0.56,1.86,Mike Evans,Chris Godwin,Emeka Egbuka
+2025,17,2025_17_ARI_CIN,ARI,CIN,0.86,0.67,0.33,1.86,Michael Wilson,Xavier Weaver,Marvin Harrison Jr.
+2025,17,2025_17_ARI_CIN,CIN,ARI,0.77,0.7,0.57,2.04,Ja'Marr Chase,Andrei Iosivas,Tee Higgins
+2025,17,2025_17_BAL_GB,BAL,GB,0.68,0.53,0.26,1.47,Zay Flowers,Rashod Bateman,Devontez Walker
+2025,17,2025_17_BAL_GB,GB,BAL,0.62,0.57,0.53,1.72,Christian Watson,Romeo Doubs,Matthew Golden
+2025,17,2025_17_CHI_SF,CHI,SF,0.92,0.62,0.58,2.12,D.J. Moore,Jahdae Walker,Luther Burden
+2025,17,2025_17_CHI_SF,SF,CHI,0.9,0.81,0.35,2.06,Jauan Jennings,Ricky Pearsall,Demarcus Robinson
+2025,17,2025_17_DAL_WAS,DAL,WAS,0.87,0.87,0.62,2.36,CeeDee Lamb,George Pickens,Jalen Tolbert
+2025,17,2025_17_DAL_WAS,WAS,DAL,0.91,0.86,0.82,2.59,Treylon Burks,Terry McLaurin,Deebo Samuel
+2025,17,2025_17_DEN_KC,DEN,KC,0.82,0.6,0.47,1.89,Courtland Sutton,Lil'Jordan Humphrey,Marvin Mims
+2025,17,2025_17_DEN_KC,KC,DEN,0.81,0.79,0.6,2.2,JuJu Smith-Schuster,Xavier Worthy,Marquise Brown
+2025,17,2025_17_DET_MIN,DET,MIN,0.83,0.83,0.52,2.1799999999999997,Jameson Williams,Amon-Ra St. Brown,Isaac TeSlaa
+2025,17,2025_17_DET_MIN,MIN,DET,0.98,0.78,0.43,2.19,Justin Jefferson,Jordan Addison,Jalen Nailor
+2025,17,2025_17_HOU_LAC,HOU,LAC,0.68,0.49,0.48,1.65,Nico Collins,Jayden Higgins,Xavier Hutchinson
+2025,17,2025_17_HOU_LAC,LAC,HOU,0.89,0.75,0.57,2.21,Ladd McConkey,Quentin Johnston,Keenan Allen
+2025,17,2025_17_JAX_IND,IND,JAX,0.91,0.86,0.61,2.38,Alec Pierce,Michael Pittman Jr.,Josh Downs
+2025,17,2025_17_JAX_IND,JAX,IND,0.94,0.81,0.78,2.5300000000000002,Jakobi Meyers,Parker Washington,Brian Thomas
+2025,17,2025_17_LA_ATL,ATL,LA,0.98,0.7,0.15,1.8299999999999998,Drake London,Darnell Mooney,David Sills V
+2025,17,2025_17_LA_ATL,LA,ATL,0.74,0.66,0.51,1.91,Puka Nacua,Konata Mumpfield,Xavier Smith
+2025,17,2025_17_NE_NYJ,NE,NYJ,0.85,0.62,0.52,1.99,Kyle Williams,Efton Chism,Stefon Diggs
+2025,17,2025_17_NE_NYJ,NYJ,NE,0.81,0.76,0.69,2.26,Adonai Mitchell,John Metchie,Isaiah Williams
+2025,17,2025_17_NO_TEN,NO,TEN,0.91,0.81,0.69,2.41,Chris Olave,Kevin Austin,Dante Pettis
+2025,17,2025_17_NO_TEN,TEN,NO,0.81,0.78,0.54,2.13,Elic Ayomanor,Chimere Dike,James Proche
+2025,17,2025_17_NYG_LV,LV,NYG,1.0,0.78,0.56,2.34,Tre Tucker,Dont'e Thornton,Tyler Lockett
+2025,17,2025_17_NYG_LV,NYG,LV,0.88,0.81,0.75,2.44,Darius Slayton,Isaiah Hodgins,Wan'Dale Robinson
+2025,17,2025_17_PHI_BUF,BUF,PHI,0.78,0.57,0.51,1.86,Khalil Shakir,Tyrell Shavers,Brandin Cooks
+2025,17,2025_17_PHI_BUF,PHI,BUF,0.89,0.85,0.48,2.2199999999999998,A.J. Brown,DeVonta Smith,Jahan Dotson
+2025,17,2025_17_PIT_CLE,CLE,PIT,0.94,0.58,0.38,1.9,Jerry Jeudy,Cedric Tillman,Malachi Corley
+2025,17,2025_17_PIT_CLE,PIT,CLE,0.86,0.82,0.64,2.32,Adam Thielen,Marquez Valdes-Scantling,Scott Miller
+2025,17,2025_17_SEA_CAR,CAR,SEA,0.83,0.72,0.55,2.0999999999999996,Tetairoa McMillan,Jalen Coker,Xavier Legette
+2025,17,2025_17_SEA_CAR,SEA,CAR,0.89,0.88,0.26,2.0300000000000002,Jaxon Smith-Njigba,Cooper Kupp,Jake Bobo
+2025,17,2025_17_TB_MIA,MIA,TB,0.69,0.64,0.27,1.6,Cedrick Wilson Jr.,Malik Washington,Theo Wease
+2025,17,2025_17_TB_MIA,TB,MIA,0.79,0.75,0.58,2.12,Chris Godwin,Mike Evans,Emeka Egbuka
+2025,18,2025_18_ARI_LA,ARI,LA,0.93,0.78,0.27,1.98,Michael Wilson,Xavier Weaver,Jalen Brooks
+2025,18,2025_18_ARI_LA,LA,ARI,0.69,0.48,0.33,1.5,Puka Nacua,Konata Mumpfield,Xavier Smith
+2025,18,2025_18_BAL_PIT,BAL,PIT,0.98,0.73,0.25,1.96,Zay Flowers,Devontez Walker,DeAndre Hopkins
+2025,18,2025_18_BAL_PIT,PIT,BAL,0.84,0.67,0.49,2.0,Marquez Valdes-Scantling,Adam Thielen,Calvin Austin III
+2025,18,2025_18_CAR_TB,CAR,TB,0.92,0.88,0.31,2.11,Jalen Coker,Tetairoa McMillan,Xavier Legette
+2025,18,2025_18_CAR_TB,TB,CAR,0.75,0.7,0.58,2.03,Mike Evans,Chris Godwin,Emeka Egbuka
+2025,18,2025_18_CLE_CIN,CIN,CLE,1.0,0.87,0.53,2.4000000000000004,Ja'Marr Chase,Tee Higgins,Andrei Iosivas
+2025,18,2025_18_CLE_CIN,CLE,CIN,0.88,0.77,0.54,2.19,Jerry Jeudy,Cedric Tillman,Isaiah Bond
+2025,18,2025_18_DAL_NYG,DAL,NYG,0.87,0.45,0.45,1.77,Ryan Flournoy,CeeDee Lamb,George Pickens
+2025,18,2025_18_DAL_NYG,NYG,DAL,0.96,0.87,0.84,2.67,Isaiah Hodgins,Darius Slayton,Gunner Olszewski
+2025,18,2025_18_DET_CHI,CHI,DET,0.85,0.62,0.36,1.83,D.J. Moore,Luther Burden,Jahdae Walker
+2025,18,2025_18_DET_CHI,DET,CHI,0.95,0.95,0.6,2.5,Jameson Williams,Amon-Ra St. Brown,Isaac TeSlaa
+2025,18,2025_18_GB_MIN,GB,MIN,1.0,0.94,0.16,2.1,Matthew Golden,Jakobie Keeney-James,Jayden Reed
+2025,18,2025_18_GB_MIN,MIN,GB,0.93,0.76,0.75,2.44,Jordan Addison,Justin Jefferson,Jalen Nailor
+2025,18,2025_18_IND_HOU,HOU,IND,0.81,0.79,0.57,2.17,Jayden Higgins,Xavier Hutchinson,Christian Kirk
+2025,18,2025_18_IND_HOU,IND,HOU,0.89,0.68,0.63,2.2,Michael Pittman Jr.,Alec Pierce,Josh Downs
+2025,18,2025_18_KC_LV,KC,LV,0.81,0.78,0.67,2.2600000000000002,Marquise Brown,JuJu Smith-Schuster,Jalen Royals
+2025,18,2025_18_KC_LV,LV,KC,0.98,0.58,0.52,2.08,Tre Tucker,Jack Bech,Tyler Lockett
+2025,18,2025_18_LAC_DEN,DEN,LAC,0.78,0.66,0.42,1.8599999999999999,Courtland Sutton,Pat Bryant,Troy Franklin
+2025,18,2025_18_LAC_DEN,LAC,DEN,0.97,0.66,0.54,2.17,Tre Harris,Derius Davis,Keenan Allen
+2025,18,2025_18_MIA_NE,MIA,NE,0.7,0.64,0.38,1.7199999999999998,Malik Washington,Cedrick Wilson Jr.,Tahj Washington
+2025,18,2025_18_MIA_NE,NE,MIA,0.58,0.46,0.46,1.5,Kayshon Boutte,Kyle Williams,Stefon Diggs
+2025,18,2025_18_NO_ATL,ATL,NO,0.94,0.83,0.71,2.48,Drake London,Darnell Mooney,David Sills V
+2025,18,2025_18_NO_ATL,NO,ATL,0.97,0.76,0.53,2.26,Kevin Austin,Dante Pettis,Ronnie Bell
+2025,18,2025_18_NYJ_BUF,BUF,NYJ,0.93,0.84,0.81,2.58,Gabriel Davis,Josh Palmer,Keon Coleman
+2025,18,2025_18_NYJ_BUF,NYJ,BUF,0.71,0.52,0.52,1.75,John Metchie,Isaiah Williams,Adonai Mitchell
+2025,18,2025_18_SEA_SF,SEA,SF,0.83,0.77,0.48,2.08,Jaxon Smith-Njigba,Cooper Kupp,Rashid Shaheed
+2025,18,2025_18_SEA_SF,SF,SEA,0.88,0.88,0.52,2.2800000000000002,Jauan Jennings,Demarcus Robinson,Kendrick Bourne
+2025,18,2025_18_TEN_JAX,JAX,TEN,0.79,0.74,0.57,2.1,Jakobi Meyers,Parker Washington,Brian Thomas
+2025,18,2025_18_TEN_JAX,TEN,JAX,0.94,0.72,0.48,2.1399999999999997,Elic Ayomanor,Chimere Dike,James Proche
+2025,18,2025_18_WAS_PHI,PHI,WAS,0.94,0.84,0.55,2.33,Jahan Dotson,Darius Cooper,Britain Covey
+2025,18,2025_18_WAS_PHI,WAS,PHI,0.71,0.7,0.68,2.09,Deebo Samuel,Terry McLaurin,Treylon Burks

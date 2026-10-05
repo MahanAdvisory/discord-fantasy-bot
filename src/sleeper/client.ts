@@ -26,6 +26,19 @@ export interface SleeperLeague {
   draft_id?: string;
   /** Slot order matches each roster's `starters` array (QB, RB, FLEX, SUPER_FLEX, …). */
   roster_positions?: string[] | null;
+  settings?: {
+    /** 1 (or true) when the league is best ball — lineups are auto-optimized. */
+    best_ball?: number | boolean | string | null;
+    waiver_day_of_week?: number;
+  } | null;
+}
+
+/** Best-ball leagues auto-set lineups; skip IR / projection / flex lineup issues. */
+export function isSleeperBestBallLeague(
+  league: { settings?: { best_ball?: unknown } | null } | null | undefined,
+): boolean {
+  const v = league?.settings?.best_ball;
+  return v === 1 || v === true || v === "1";
 }
 
 export interface SleeperRoster {

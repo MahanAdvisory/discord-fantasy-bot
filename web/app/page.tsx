@@ -6,7 +6,17 @@ import { StatsPanel } from "@/components/StatsPanel";
 
 type TabKey = "drafts" | "leagues" | "lineup" | "activity" | "waivers" | "stats" | "notification_settings";
 type Dashboard = Awaited<ReturnType<typeof fetchDashboard>> | null;
-type Lineup = { evaluated: number; noIssues: number; issues: string[] } | null;
+type LineupUpgrade = {
+  leagueId: string;
+  leagueName: string;
+  lineupUrl: string;
+  slot: string;
+  sitLabel: string;
+  sitProj: number;
+  startLabel: string;
+  startProj: number;
+};
+type Lineup = { evaluated: number; noIssues: number; issues: string[]; upgrades?: LineupUpgrade[] } | null;
 type Activity = {
   offset: number; limit: number; total: number; hasMore: boolean; nextOffset: number;
   items: { id: string; leagueId: string; leagueName: string; createdAtMs: number; kind: "transaction" | "draft_pick"; text: string; url: string }[];
@@ -227,7 +237,7 @@ export default function Home() {
       else setLeagueDetails(null);
 
       if (lineupRes.ok && lineupJson) setLineup(lineupJson);
-      else setLineup({ evaluated: 0, noIssues: 0, issues: ["Could not load lineup issues."] });
+      else setLineup({ evaluated: 0, noIssues: 0, issues: ["Could not load lineup issues."], upgrades: [] });
 
       if (actRes.ok && actJson) setActivity(actJson);
       if (wavRes.ok && wavJson) setWaivers(wavJson);
@@ -257,7 +267,7 @@ export default function Home() {
 
   useEffect(() => {
     if (activeTab === "lineup" && !lineup && status === "authenticated") {
-      void fetch("/api/lineup-issues", { cache: "no-store" }).then(async (r) => setLineup(r.ok ? ((await r.json()) as Lineup) : { evaluated: 0, noIssues: 0, issues: ["Could not load lineup issues."] }));
+      void fetch("/api/lineup-issues", { cache: "no-store" }).then(async (r) => setLineup(r.ok ? ((await r.json()) as Lineup) : { evaluated: 0, noIssues: 0, issues: ["Could not load lineup issues."], upgrades: [] }));
     }
     if (activeTab === "notification_settings" && !subs && status === "authenticated") {
       void fetch("/api/subscriptions").then(async (r) => setSubs(r.ok ? ((await r.json()) as Subscriptions) : { categories: [], routes: [] }));
@@ -617,28 +627,71 @@ export default function Home() {
                 Last refreshed: {lastRefreshedLabel ?? "—"}
               </div>
               <p className="mb-3 text-sm text-zinc-600">Teams evaluated: {lineup.evaluated}. Teams with no issues: {lineup.noIssues}.</p>
-              <ul className="space-y-3">
-                {lineup.issues.map((issue, idx) => {
-                  const parsed = splitLineupIssue(issue);
-                  return (
-                    <li key={idx} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-                      <div className="grid grid-cols-[1fr_auto] items-start gap-4">
-                        <p className="whitespace-pre-wrap">{renderLinks(parsed.body)}</p>
-                        {parsed.lineupUrl ? (
-                          <a
-                            href={parsed.lineupUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-blue-300 dark:hover:bg-zinc-900"
-                          >
-                            Set Lineup
-                          </a>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              {(lineup.upgrades?.length ?? 0) > 0 ? (
+                <div className="mb-6">
+                  <h2 className="mb-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">Projected upgrades</h2>
+                  <p className="mb-3 text-xs text-zinc-500">
+                    Bench players projected to outscore a current starter in an eligible slot (WR for WR/FLEX, and so on).
+                  </p>
+                  <ul className="space-y-3">
+                    {lineup.upgrades!.map((u, idx) => (
+                      <li key={`${u.leagueId}-${u.slot}-${u.startLabel}-${idx}`} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+                        <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                          <div>
+                            <p className="font-medium text-zinc-800 dark:text-zinc-200">{u.leagueName}</p>
+                            <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                              Sit {u.sitLabel} ({u.sitProj.toFixed(1)}) in <span className="font-medium">{u.slot}</span>
+                              {" · "}
+                              start {u.startLabel} ({u.startProj.toFixed(1)})
+                            </p>
+                          </div>
+                          {u.lineupUrl ? (
+                            <a
+                              href={u.lineupUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-blue-300 dark:hover:bg-zinc-900"
+                            >
+                              Set Lineup
+                            </a>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {lineup.issues.length > 0 ? (
+                <>
+                  {(lineup.upgrades?.length ?? 0) > 0 ? (
+                    <h2 className="mb-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">Other lineup issues</h2>
+                  ) : null}
+                  <ul className="space-y-3">
+                    {lineup.issues.map((issue, idx) => {
+                      const parsed = splitLineupIssue(issue);
+                      return (
+                        <li key={idx} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+                          <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                            <p className="whitespace-pre-wrap">{renderLinks(parsed.body)}</p>
+                            {parsed.lineupUrl ? (
+                              <a
+                                href={parsed.lineupUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-blue-300 dark:hover:bg-zinc-900"
+                              >
+                                Set Lineup
+                              </a>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : lineup.upgrades?.length ? null : (
+                <p className="text-sm text-zinc-500">No lineup issues or projected upgrades this week.</p>
+              )}
             </section>
           )}
 

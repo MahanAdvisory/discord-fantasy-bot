@@ -29,6 +29,7 @@ export async function GET() {
   return Response.json({
     evaluated: report.evaluated,
     noIssues: report.noIssues,
-    issues: report.issueEntries.map((e) => e.text),
+    issues: report.issueEntries.filter((e) => e.kind !== "upgrade").map((e) => e.text),
+    upgrades: report.upgrades,
   });
 }

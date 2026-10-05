@@ -1,0 +1,7 @@
+lead_state,sandwich,wins,decided,win_pct,n,ties
+Leading before 30s,Sandwich,262,292,0.8972602739726028,292,0
+Leading before 30s,No sandwich,766,993,0.771399798590131,995,2
+Leading before 30s,All,1028,1285,0.8,1287,2
+Not leading before 30s,Sandwich,201,464,0.4331896551724138,467,3
+Not leading before 30s,No sandwich,310,1269,0.24428684003152087,1274,5
+Not leading before 30s,All,511,1733,0.29486439699942296,1741,8

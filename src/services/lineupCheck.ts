@@ -1,14 +1,31 @@
 import { prisma } from "../db.js";
 import { ALL_LEAGUES_SCOPE, LINEUP_MONITOR_SUBSCRIPTION_CATEGORIES } from "../domain/notifications.js";
-import { getLeague, getLeagueRosters, getNflState, getUserLeagues } from "../sleeper/client.js";
+import { getLeague, getLeagueRosters, getNflState, getUserLeagues, isSleeperBestBallLeague } from "../sleeper/client.js";
 import { findRosterForUser } from "../sleeper/rosterOwnership.js";
-import { fetchWeeklyProjections } from "../sleeper/projections.js";
+import { preferredProjectionPoints } from "../sleeper/projections.js";
 import { sleeperLeagueTeamUrl } from "./notifications/links.js";
-import { fetchAllNflPlayers } from "../sleeper/playersFull.js";
+import { sleeperLeagueTeamUrlPlain } from "../domain/sleeperLinks.js";
+import { fetchAllNflPlayers, nflTeamFromPlayerData } from "../sleeper/playersFull.js";
 
-type ProjectionMap = Map<string, number>;
+export type ProjectionMap = Map<string, number>;
 let fullPlayerCache: Record<string, unknown> | null = null;
-let projectionCache: ProjectionMap | null = null;
+let fullPlayerCacheAt = 0;
+let projectionCache: { key: string; at: number; map: ProjectionMap } | null = null;
+const FULL_PLAYER_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const PROJECTION_CACHE_TTL_MS = 10 * 60 * 1000;
+/** Ignore tiny ranking noise; 0.5 PPR is enough to bother swapping. */
+export const PROJECTION_UPGRADE_MIN_DELTA = 0.5;
+
+const NON_START_SLOTS = new Set(["BN", "BENCH", "IR", "TAXI", "RESERVE"]);
+
+async function loadFullPlayerCache(): Promise<Record<string, unknown>> {
+  if (fullPlayerCache && Date.now() - fullPlayerCacheAt < FULL_PLAYER_CACHE_TTL_MS) {
+    return fullPlayerCache;
+  }
+  fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+  fullPlayerCacheAt = Date.now();
+  return fullPlayerCache;
+}
 
 function playerNameFromCatalog(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
@@ -16,45 +33,44 @@ function playerNameFromCatalog(data: unknown): string | null {
   const name = d.full_name?.trim() || `${d.first_name ?? ""} ${d.last_name ?? ""}`.trim();
   if (!name) return null;
   const pos = d.position?.trim();
-  const team = d.team?.trim();
+  const team = nflTeamFromPlayerData(data);
   if (pos && team) return `${name} (${pos}, ${team})`;
   if (pos) return `${name} (${pos})`;
   return name;
 }
 
-function projFromRow(row: Record<string, unknown>): number {
-  const direct =
-    (typeof row.pts_ppr === "number" ? row.pts_ppr : null) ??
-    (typeof row.pts_half_ppr === "number" ? row.pts_half_ppr : null) ??
-    (typeof row.pts_std === "number" ? row.pts_std : null) ??
-    (typeof row.fantasy_points === "number" ? row.fantasy_points : null);
-  if (direct != null) return direct;
-  const stats = row.stats;
-  if (stats && typeof stats === "object") {
-    const val =
-      (stats as Record<string, unknown>).pts_ppr ??
-      (stats as Record<string, unknown>).pts_half_ppr ??
-      (stats as Record<string, unknown>).pts_std;
-    if (typeof val === "number") return val;
-  }
-  return 0;
-}
-
 export async function loadProjectionMap(): Promise<ProjectionMap> {
-  if (projectionCache) return projectionCache;
   const nfl = await getNflState();
-  const season = nfl.league_season ?? nfl.season;
+  const season = String(nfl.league_season ?? nfl.season);
   const week = Math.max(1, nfl.display_week ?? nfl.week ?? 1);
-  const rows = await fetchWeeklyProjections(season, week, "regular").catch(() => []);
+  const seasonType = "regular";
+  const key = `${season}:${week}:${seasonType}`;
+  if (
+    projectionCache &&
+    projectionCache.key === key &&
+    Date.now() - projectionCache.at < PROJECTION_CACHE_TTL_MS
+  ) {
+    return projectionCache.map;
+  }
+
+  const select = { playerId: true, ptsPpr: true, ptsHalfPpr: true, ptsStd: true } as const;
+  const rows = await prisma.sleeperPlayerProjection.findMany({
+    where: { season, week, seasonType },
+    select,
+  });
+
   const map: ProjectionMap = new Map();
   for (const r of rows) {
-    if (!r || typeof r !== "object") continue;
-    const row = r as Record<string, unknown>;
-    const id = typeof row.player_id === "string" ? row.player_id : null;
-    if (!id) continue;
-    map.set(id, projFromRow(row));
+    map.set(
+      r.playerId,
+      preferredProjectionPoints({
+        ptsPpr: r.ptsPpr,
+        ptsHalfPpr: r.ptsHalfPpr,
+        ptsStd: r.ptsStd,
+      }),
+    );
   }
-  projectionCache = map;
+  projectionCache = { key, at: Date.now(), map };
   return map;
 }
 
@@ -73,9 +89,9 @@ export async function loadPlayerLabels(playerIds: string[]): Promise<Map<string,
   }
   const missing = ids.filter((id) => !out.has(id));
   if (missing.length) {
-    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+    const live = await loadFullPlayerCache();
     for (const id of missing) {
-      const label = playerNameFromCatalog(fullPlayerCache?.[id]);
+      const label = playerNameFromCatalog(live[id]);
       if (label) out.set(id, label);
     }
   }
@@ -133,14 +149,111 @@ export function playerEligibleForRosterSlot(slotRaw: string, playerPosRaw: strin
   return true;
 }
 
+export function isStartableRosterSlot(slotRaw: string): boolean {
+  const s = normalizeRosterSlot(slotRaw);
+  return Boolean(s) && !NON_START_SLOTS.has(s);
+}
+
+export type ProjectionUpgrade = {
+  slot: string;
+  starterId: string;
+  benchId: string;
+  starterProj: number;
+  benchProj: number;
+};
+
+/** Greedy: assign each unused bench player to the eligible starter slot with the largest positive delta. */
+export function findProjectionUpgrades(opts: {
+  starters: string[];
+  rosterPositions: string[] | null | undefined;
+  bench: string[];
+  projections: ProjectionMap;
+  positions: Map<string, string>;
+  teams: Map<string, string | null>;
+  skipStarterIdxs?: Iterable<number>;
+  skipBenchIds?: Iterable<string>;
+  minDelta?: number;
+}): ProjectionUpgrade[] {
+  const minDelta = opts.minDelta ?? PROJECTION_UPGRADE_MIN_DELTA;
+  const skipIdx = new Set(opts.skipStarterIdxs ?? []);
+  const skipBench = new Set(opts.skipBenchIds ?? []);
+  const candidates: Array<ProjectionUpgrade & { starterIdx: number; delta: number }> = [];
+
+  for (let i = 0; i < opts.starters.length; i++) {
+    if (skipIdx.has(i)) continue;
+    const starterId = opts.starters[i];
+    if (!starterId || starterId === "0") continue;
+    const slotRaw = opts.rosterPositions?.[i]?.trim() || "";
+    if (!isStartableRosterSlot(slotRaw)) continue;
+    if (!opts.teams.get(starterId)) continue;
+    const starterProj = opts.projections.get(starterId) ?? 0;
+
+    for (const benchId of opts.bench) {
+      if (!benchId || skipBench.has(benchId)) continue;
+      if (!opts.teams.get(benchId)) continue;
+      if (!playerEligibleForRosterSlot(slotRaw, opts.positions.get(benchId))) continue;
+      const benchProj = opts.projections.get(benchId) ?? 0;
+      const delta = benchProj - starterProj;
+      if (delta < minDelta) continue;
+      candidates.push({
+        slot: slotRaw,
+        starterId,
+        benchId,
+        starterProj,
+        benchProj,
+        starterIdx: i,
+        delta,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => b.delta - a.delta || b.benchProj - a.benchProj);
+  const usedStarters = new Set<number>();
+  const usedBench = new Set<string>();
+  const out: ProjectionUpgrade[] = [];
+  for (const c of candidates) {
+    if (usedStarters.has(c.starterIdx) || usedBench.has(c.benchId)) continue;
+    usedStarters.add(c.starterIdx);
+    usedBench.add(c.benchId);
+    out.push({
+      slot: c.slot,
+      starterId: c.starterId,
+      benchId: c.benchId,
+      starterProj: c.starterProj,
+      benchProj: c.benchProj,
+    });
+  }
+  return out;
+}
+
 export type IrSlotSuggestion = { slot: string; playerLabel: string; proj: number | null };
 
+export type LineupUpgradeView = {
+  slot: string;
+  sitLabel: string;
+  sitProj: number;
+  startLabel: string;
+  startProj: number;
+};
+
 export type LineupCheckOutcome =
-  | { kind: "ok"; leagueId: string; leagueName: string }
-  | { kind: "issues"; leagueId: string; leagueName: string; issues: string[]; suggestions: IrSlotSuggestion[] }
+  | { kind: "ok"; leagueId: string; leagueName: string; ignored?: "best_ball" }
+  | {
+      kind: "issues";
+      leagueId: string;
+      leagueName: string;
+      issues: string[];
+      suggestions: IrSlotSuggestion[];
+      upgrades: LineupUpgradeView[];
+    }
   | { kind: "problem"; leagueId: string; leagueName: string; detail: string };
 
-function formatLineupIssueBlock(leagueName: string, issues: string[], suggestions: IrSlotSuggestion[], leagueId: string): string {
+function formatLineupIssueBlock(
+  leagueName: string,
+  issues: string[],
+  suggestions: IrSlotSuggestion[],
+  leagueId: string,
+): string {
   const sugLines = suggestions.map((s) => {
     const projSuffix = s.proj != null ? ` (proj: ${s.proj.toFixed(2)})` : "";
     return `· **[${s.slot}]** ${s.playerLabel}${projSuffix}`;
@@ -155,6 +268,18 @@ function formatLineupIssueBlock(leagueName: string, issues: string[], suggestion
     `**${leagueName}** lineup check\n` +
     `Issues:\n${issues.map((x) => `· ${x}`).join("\n")}\n` +
     `${sugBlock}\n` +
+    `${sleeperLeagueTeamUrl(leagueId)}`
+  );
+}
+
+function formatUpgradeBlock(leagueName: string, upgrades: LineupUpgradeView[], leagueId: string): string {
+  const lines = upgrades.map(
+    (u) =>
+      `· Sit **${u.sitLabel}** (${u.sitProj.toFixed(1)}) in **${u.slot}**; start **${u.startLabel}** (${u.startProj.toFixed(1)}).`,
+  );
+  return (
+    `**${leagueName}** projected upgrades\n` +
+    `${lines.join("\n")}\n` +
     `${sleeperLeagueTeamUrl(leagueId)}`
   );
 }
@@ -175,9 +300,9 @@ export async function loadPlayerPositions(playerIds: string[]): Promise<Map<stri
   }
   const missing = ids.filter((id) => !out.has(id));
   if (missing.length) {
-    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+    const live = await loadFullPlayerCache();
     for (const id of missing) {
-      const data = fullPlayerCache?.[id] as { position?: string } | undefined;
+      const data = live[id] as { position?: string } | undefined;
       const p = data?.position?.trim();
       if (p) out.set(id, p);
     }
@@ -195,15 +320,13 @@ export async function loadPlayerTeams(playerIds: string[]): Promise<Map<string, 
     : [];
   const out = new Map<string, string | null>();
   for (const r of rows) {
-    const data = r.data as { team?: string } | null;
-    out.set(r.playerId, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+    out.set(r.playerId, nflTeamFromPlayerData(r.data));
   }
-  const missing = ids.filter((id) => !out.has(id));
+  const missing = ids.filter((id) => !out.get(id));
   if (missing.length) {
-    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+    const live = await loadFullPlayerCache();
     for (const id of missing) {
-      const data = fullPlayerCache?.[id] as { team?: string } | undefined;
-      out.set(id, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+      out.set(id, nflTeamFromPlayerData(live[id]));
     }
   }
   return out;
@@ -218,8 +341,8 @@ function buildFlaggedSlotSuggestions(opts: {
   labels: Map<string, string>;
   positions: Map<string, string>;
   teams: Map<string, string | null>;
-}): IrSlotSuggestion[] {
-  const { starters, flaggedStarterIdxs, rosterPositions, bench, projections, labels, positions, teams } = opts;
+}): { suggestions: IrSlotSuggestion[]; assignedBench: Set<string> } {
+  const { flaggedStarterIdxs, rosterPositions, bench, projections, labels, positions, teams } = opts;
   const assignedBench = new Set<string>();
   const suggestions: IrSlotSuggestion[] = [];
 
@@ -252,17 +375,20 @@ function buildFlaggedSlotSuggestions(opts: {
     }
   }
 
-  return suggestions;
+  return { suggestions, assignedBench };
 }
 
 export async function analyzeLineupForLeague(
   sleeperUserId: string,
   leagueId: string,
-  opts?: { projections?: ProjectionMap },
+  opts?: { projections?: ProjectionMap; includeProjectionUpgrades?: boolean },
 ): Promise<LineupCheckOutcome> {
   const league = await getLeague(leagueId).catch(() => null);
   if (!league) {
     return { kind: "problem", leagueId, leagueName: leagueId, detail: `League \`${leagueId}\` not found on Sleeper.` };
+  }
+  if (isSleeperBestBallLeague(league)) {
+    return { kind: "ok", leagueId, leagueName: league.name, ignored: "best_ball" };
   }
   const rosters = await getLeagueRosters(leagueId).catch(() => []);
   const roster = findRosterForUser(rosters, sleeperUserId);
@@ -286,27 +412,34 @@ export async function analyzeLineupForLeague(
   }
   const allPlayers = (roster.players ?? []).filter((p): p is string => typeof p === "string" && p.length > 0);
   const starterSet = new Set(starters);
-  const bench = allPlayers.filter((p) => !starterSet.has(p));
+  const reserveTaxi = new Set(
+    [...(roster.reserve ?? []), ...(roster.taxi ?? [])].filter((p): p is string => typeof p === "string" && p.length > 0),
+  );
+  const bench = allPlayers.filter((p) => !starterSet.has(p) && !reserveTaxi.has(p));
   const labels = await loadPlayerLabels([...starters, ...bench]);
   const starterIds = starters.filter((pid) => pid !== "0");
-  const playerRows = await prisma.sleeperPlayer.findMany({
-    where: { playerId: { in: starterIds } },
-    select: { playerId: true, data: true },
-  });
+  const catalogIds = [...new Set([...starterIds, ...bench])];
+  const playerRows = catalogIds.length
+    ? await prisma.sleeperPlayer.findMany({
+        where: { playerId: { in: catalogIds } },
+        select: { playerId: true, data: true },
+      })
+    : [];
   const statusByPlayer = new Map<string, string | null>();
   const teamByPlayer = new Map<string, string | null>();
   for (const p of playerRows) {
-    const data = p.data as { injury_status?: string; team?: string } | null;
+    const data = p.data as { injury_status?: string } | null;
     statusByPlayer.set(p.playerId, data?.injury_status ?? null);
-    teamByPlayer.set(p.playerId, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+    teamByPlayer.set(p.playerId, nflTeamFromPlayerData(p.data));
   }
-  const unresolved = starterIds.filter((pid) => statusByPlayer.get(pid) == null || !teamByPlayer.has(pid));
+  const unresolved = catalogIds.filter((pid) => !teamByPlayer.get(pid) || statusByPlayer.get(pid) == null);
   if (unresolved.length) {
-    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
+    const live = await loadFullPlayerCache();
     for (const pid of unresolved) {
-      const data = fullPlayerCache?.[pid] as { injury_status?: string; team?: string } | undefined;
-      statusByPlayer.set(pid, data?.injury_status ?? null);
-      teamByPlayer.set(pid, typeof data?.team === "string" && data.team.trim() ? data.team.trim() : null);
+      const data = live[pid] as { injury_status?: string } | undefined;
+      if (data?.injury_status != null) statusByPlayer.set(pid, data.injury_status);
+      const liveTeam = nflTeamFromPlayerData(live[pid]);
+      if (liveTeam) teamByPlayer.set(pid, liveTeam);
     }
   }
 
@@ -329,23 +462,53 @@ export async function analyzeLineupForLeague(
       issues.push(`Starter has no NFL team: ${labels.get(pid) ?? `\`${pid}\``}.`);
     }
   }
-  if (!flaggedStarterIdxs.length) {
+  const wantUpgrades = Boolean(opts?.includeProjectionUpgrades);
+  if (!flaggedStarterIdxs.length && !wantUpgrades) {
     return { kind: "ok", leagueId, leagueName: league.name };
   }
 
   const projections = opts?.projections ?? (await loadProjectionMap());
   const positions = await loadPlayerPositions([...starters, ...bench]);
   const teams = await loadPlayerTeams([...starters, ...bench]);
-  const suggestions = buildFlaggedSlotSuggestions({
-    starters,
-    flaggedStarterIdxs,
-    rosterPositions: league.roster_positions,
-    bench,
-    projections,
-    labels,
-    positions,
-    teams,
-  });
+  const fill = flaggedStarterIdxs.length
+    ? buildFlaggedSlotSuggestions({
+        starters,
+        flaggedStarterIdxs,
+        rosterPositions: league.roster_positions,
+        bench,
+        projections,
+        labels,
+        positions,
+        teams,
+      })
+    : { suggestions: [] as IrSlotSuggestion[], assignedBench: new Set<string>() };
+  const suggestions = fill.suggestions;
+
+  let upgrades: LineupUpgradeView[] = [];
+  if (wantUpgrades) {
+    const healthyBench = bench.filter((id) => !isIrStatus(statusByPlayer.get(id) ?? null));
+    const raw = findProjectionUpgrades({
+      starters,
+      rosterPositions: league.roster_positions,
+      bench: healthyBench,
+      projections,
+      positions,
+      teams,
+      skipStarterIdxs: flaggedStarterIdxs,
+      skipBenchIds: fill.assignedBench,
+    });
+    upgrades = raw.map((u) => ({
+      slot: u.slot,
+      sitLabel: labels.get(u.starterId) ?? `\`${u.starterId}\``,
+      sitProj: u.starterProj,
+      startLabel: labels.get(u.benchId) ?? `\`${u.benchId}\``,
+      startProj: u.benchProj,
+    }));
+  }
+
+  if (!issues.length && !upgrades.length) {
+    return { kind: "ok", leagueId, leagueName: league.name };
+  }
 
   return {
     kind: "issues",
@@ -353,6 +516,7 @@ export async function analyzeLineupForLeague(
     leagueName: league.name,
     issues,
     suggestions,
+    upgrades,
   };
 }
 
@@ -363,7 +527,13 @@ export function outcomeToCheckLineupMessage(outcome: LineupCheckOutcome): string
   if (outcome.kind === "problem") {
     return `${outcome.detail}\n${sleeperLeagueTeamUrl(outcome.leagueId)}`;
   }
-  return formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId);
+  const irBlock = outcome.issues.length
+    ? formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId)
+    : "";
+  const upgradeBlock = outcome.upgrades.length
+    ? formatUpgradeBlock(outcome.leagueName, outcome.upgrades, outcome.leagueId)
+    : "";
+  return [irBlock, upgradeBlock].filter(Boolean).join("\n\n");
 }
 
 /** @deprecated Prefer analyzeLineupForLeague + outcomeToCheckLineupMessage for new code. */
@@ -378,7 +548,13 @@ export async function buildCheckLineupMessage(
 
 export const LINEUP_CHECK_ISSUES_PER_MESSAGE = 4;
 
-export type LineupCheckIssueEntry = { text: string };
+export type LineupCheckIssueEntry = { text: string; kind: "injury" | "upgrade" | "problem" };
+
+export type LineupUpgradeEntry = LineupUpgradeView & {
+  leagueId: string;
+  leagueName: string;
+  lineupUrl: string;
+};
 
 export async function runLineupCheckAcrossLeagues(
   sleeperUserId: string,
@@ -387,30 +563,59 @@ export async function runLineupCheckAcrossLeagues(
   evaluated: number;
   noIssues: number;
   issueEntries: LineupCheckIssueEntry[];
+  upgrades: LineupUpgradeEntry[];
 }> {
   const uniq = [...new Set(leagueIds)];
   const projections = await loadProjectionMap();
+  let evaluated = 0;
   let noIssues = 0;
   const issueEntries: LineupCheckIssueEntry[] = [];
+  const upgrades: LineupUpgradeEntry[] = [];
 
   for (const lid of uniq) {
-    const outcome = await analyzeLineupForLeague(sleeperUserId, lid, { projections });
+    const outcome = await analyzeLineupForLeague(sleeperUserId, lid, {
+      projections,
+      includeProjectionUpgrades: true,
+    });
+    if (outcome.kind === "ok" && outcome.ignored === "best_ball") {
+      continue;
+    }
+    evaluated += 1;
     if (outcome.kind === "ok") {
       noIssues += 1;
       continue;
     }
     if (outcome.kind === "issues") {
-      issueEntries.push({
-        text: formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId),
-      });
+      if (outcome.issues.length) {
+        issueEntries.push({
+          kind: "injury",
+          text: formatLineupIssueBlock(outcome.leagueName, outcome.issues, outcome.suggestions, outcome.leagueId),
+        });
+      }
+      if (outcome.upgrades.length) {
+        issueEntries.push({
+          kind: "upgrade",
+          text: formatUpgradeBlock(outcome.leagueName, outcome.upgrades, outcome.leagueId),
+        });
+        const lineupUrl = sleeperLeagueTeamUrlPlain(outcome.leagueId);
+        for (const u of outcome.upgrades) {
+          upgrades.push({
+            ...u,
+            leagueId: outcome.leagueId,
+            leagueName: outcome.leagueName,
+            lineupUrl,
+          });
+        }
+      }
       continue;
     }
     issueEntries.push({
+      kind: "problem",
       text: `**${outcome.leagueName}**\n${outcome.detail}\n${sleeperLeagueTeamUrl(outcome.leagueId)}`,
     });
   }
 
-  return { evaluated: uniq.length, noIssues, issueEntries };
+  return { evaluated, noIssues, issueEntries, upgrades };
 }
 
 /** Build paginated message bodies for /check-lineup (summary-only when there are zero issues). */

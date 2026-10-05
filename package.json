@@ -18,6 +18,7 @@
     "db:migrate": "prisma migrate dev",
     "sync:players": "tsx src/scripts/sleeper-sync.ts players",
     "sync:stats-week": "tsx src/scripts/sleeper-sync.ts stats-week",
+    "sync:projections": "tsx src/scripts/sleeper-sync.ts projections",
     "sync:nflverse": "python etl/sync_nflverse.py",
     "sync:member-starts": "tsx src/scripts/snapshot-member-starts.ts",
     "yahoo:auth-url": "tsx scripts/spikes/yahoo-oauth-url.ts",

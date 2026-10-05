@@ -1,7 +1,7 @@
 import { requireSessionUser } from "@/lib/sessionUser";
 import { espnLeagueIdsFromJson } from "@fantasy/espn/linkedLeagues";
 import { buildEspnLeagueDetailRows, type EspnLeagueDetailRow } from "@fantasy/services/espnDashboard";
-import { getNflState, getUserLeagues, getLeagueRosters, type SleeperLeague } from "@fantasy/sleeper/client";
+import { getNflState, getUserLeagues, getLeagueRosters, isSleeperBestBallLeague, type SleeperLeague } from "@fantasy/sleeper/client";
 import { findRosterForUser } from "@fantasy/sleeper/rosterOwnership";
 import { getLeagueDrafts } from "@fantasy/sleeper/draftDetail";
 import { buildDraftLiveSnapshot, type DraftLiveSnapshot } from "@fantasy/sleeper/draftLiveSnapshot";
@@ -120,8 +120,14 @@ export async function GET(req: Request) {
     const wins = myRoster.settings?.wins ?? 0;
     const losses = myRoster.settings?.losses ?? 0;
     const ties = myRoster.settings?.ties ?? 0;
-    const lineupOutcome = await analyzeLineupForLeague(user.sleeperUserId, l.league_id, { projections });
-    const waiverDayRaw = (l as unknown as { settings?: { waiver_day_of_week?: number } }).settings?.waiver_day_of_week;
+    const bestBall = isSleeperBestBallLeague(l);
+    const lineupOutcome = bestBall
+      ? null
+      : await analyzeLineupForLeague(user.sleeperUserId, l.league_id, {
+          projections,
+          includeProjectionUpgrades: true,
+        });
+    const waiverDayRaw = l.settings?.waiver_day_of_week;
     const draftSnapshot = await draftSnapshotForLeague(l);
     out.push({
       provider: "sleeper",
@@ -135,7 +141,7 @@ export async function GET(req: Request) {
       ties,
       recordPct: (wins + 0.5 * ties) / Math.max(1, wins + losses + ties),
       waiverRunDay: typeof waiverDayRaw === "number" ? (WAIVER_DAY_SHORT[waiverDayRaw] ?? "—") : "—",
-      lineupHasIssue: lineupOutcome.kind !== "ok",
+      lineupHasIssue: bestBall ? false : lineupOutcome?.kind !== "ok",
       rosterBuckets: buckets,
       lineupUrl: `https://sleeper.com/leagues/${l.league_id}/team`,
     });

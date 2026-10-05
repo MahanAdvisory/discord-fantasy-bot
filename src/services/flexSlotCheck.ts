@@ -1,42 +1,12 @@
-import { getLeague, getLeagueRosters, type NflState } from "../sleeper/client.js";
+import { getLeague, getLeagueRosters, isSleeperBestBallLeague, type NflState } from "../sleeper/client.js";
 import { findRosterForUser } from "../sleeper/rosterOwnership.js";
 import {
   formatKickoffEt,
   getTeamKickoffMsForNflWeek,
   kickoffMsForPlayerTeam,
 } from "../nfl/espnKickoff.js";
-import { loadPlayerLabels, loadPlayerPositions, normalizePos, normalizeRosterSlot } from "./lineupCheck.js";
+import { loadPlayerLabels, loadPlayerPositions, loadPlayerTeams, normalizePos, normalizeRosterSlot } from "./lineupCheck.js";
 import { sleeperLeagueTeamUrl } from "./notifications/links.js";
-import { prisma } from "../db.js";
-import { fetchAllNflPlayers } from "../sleeper/playersFull.js";
-
-let fullPlayerCache: Record<string, unknown> | null = null;
-
-async function loadPlayerTeams(playerIds: string[]): Promise<Map<string, string>> {
-  const ids = [...new Set(playerIds)];
-  const rows = ids.length
-    ? await prisma.sleeperPlayer.findMany({
-        where: { playerId: { in: ids } },
-        select: { playerId: true, data: true },
-      })
-    : [];
-  const out = new Map<string, string>();
-  for (const r of rows) {
-    const data = r.data as { team?: string } | null;
-    const t = data?.team?.trim();
-    if (t) out.set(r.playerId, t);
-  }
-  const missing = ids.filter((id) => !out.has(id));
-  if (missing.length) {
-    if (!fullPlayerCache) fullPlayerCache = await fetchAllNflPlayers().catch(() => ({}));
-    for (const id of missing) {
-      const data = fullPlayerCache?.[id] as { team?: string } | undefined;
-      const t = data?.team?.trim();
-      if (t) out.set(id, t);
-    }
-  }
-  return out;
-}
 
 function isSuperFlexSlot(slotRaw: string): boolean {
   const s = normalizeRosterSlot(slotRaw);
@@ -107,6 +77,7 @@ export async function analyzeFlexSwapsForLeague(
 ): Promise<FlexSwapRecommendation[]> {
   const league = await getLeague(leagueId).catch(() => null);
   if (!league) return [];
+  if (isSleeperBestBallLeague(league)) return [];
   const leagueName = opts?.leagueName ?? league.name;
   const rosterPositions = league.roster_positions ?? [];
   if (!rosterPositions.length) return [];

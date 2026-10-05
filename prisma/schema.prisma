@@ -137,6 +137,30 @@ model SleeperPlayerStats {
   @@map("sleeper_player_stats")
 }
 
+/// Weekly Sleeper projections (api.sleeper.com/projections/nfl/{season}/{week}).
+model SleeperPlayerProjection {
+  id String @id @default(cuid())
+
+  playerId   String @map("player_id")
+  season     String
+  seasonType String @map("season_type")
+  week       Int
+
+  ptsPpr     Float? @map("pts_ppr")
+  ptsHalfPpr Float? @map("pts_half_ppr")
+  ptsStd     Float? @map("pts_std")
+  /// Raw `stats` object from the projections payload.
+  stats Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([playerId, season, seasonType, week])
+  @@index([playerId])
+  @@index([season, week])
+  @@map("sleeper_player_projections")
+}
+
 /// Bulk stats/projection-style JSON from list endpoints (whole season/week payloads for archival).
 model SleeperStatsSnapshot {
   id String @id @default(cuid())

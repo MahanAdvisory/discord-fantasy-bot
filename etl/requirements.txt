@@ -1,3 +1,7 @@
 nflreadpy>=0.1.0
 psycopg[binary]>=3.2.0
 python-dotenv>=1.0.0
+# Polars to_pandas() (used throughout sync_nflverse.py) requires pyarrow.
+# Zone opportunity aggregation uses pandas.
+pandas>=2.2.0
+pyarrow>=17.0.0

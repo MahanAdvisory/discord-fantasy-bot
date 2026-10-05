@@ -4,6 +4,7 @@
  * Usage:
  *   npx tsx src/scripts/sleeper-sync.ts players
  *   npx tsx src/scripts/sleeper-sync.ts stats-week [season] [week]
+ *   npx tsx src/scripts/sleeper-sync.ts projections [season] [week]
  */
 import "dotenv/config";
 import { getNflState } from "../sleeper/client.js";
@@ -11,6 +12,7 @@ import { prisma } from "../db.js";
 import {
   syncNflPlayerCatalog,
   syncStatsSnapshotWeek,
+  syncWeeklyProjections,
 } from "../services/sleeperSync.js";
 
 async function main(): Promise<void> {
@@ -34,9 +36,24 @@ async function main(): Promise<void> {
     console.log(`Stored stats_bulk_week snapshot for ${season} week ${week}.`);
     return;
   }
+  if (cmd === "projections") {
+    const seasonArg = process.argv[3];
+    const weekArg = process.argv[4];
+    const state = await getNflState();
+    const season = seasonArg ?? state.league_season ?? state.season;
+    const week = weekArg !== undefined ? parseInt(weekArg, 10) : state.display_week ?? state.week ?? 1;
+    if (!Number.isFinite(week)) {
+      console.error("Invalid week");
+      process.exit(1);
+    }
+    const { count } = await syncWeeklyProjections(prisma, season, week, "regular");
+    console.log(`Stored ${count} weekly projection rows for ${season} week ${week}.`);
+    return;
+  }
   console.log(`Commands:
   players              Fetch GET /v1/players/nfl and upsert sleeper_players (heavy).
-  stats-week [yr] [wk] Store bulk stats JSON for season/week (default: NFL state).`);
+  stats-week [yr] [wk] Store bulk stats JSON for season/week (default: NFL state).
+  projections [yr] [wk] Store Sleeper weekly projections (default: NFL state).`);
 }
 
 main()
