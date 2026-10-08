@@ -392,3 +392,31 @@ model SleeperPlayerWeekStart {
   @@index([leagueId, season, week])
   @@map("sleeper_player_week_starts")
 }
+
+/// Recurring stats report posted into the guild channel where it was scheduled.
+/// Weekday and clock time are US Eastern (America/New_York), including daylight saving.
+model ScheduledReport {
+  id                     String  @id @default(cuid())
+  guildId                String  @map("guild_id")
+  channelId              String  @map("channel_id")
+  createdByDiscordUserId String  @map("created_by_discord_user_id")
+  /// stats-growth | stats-leaders | player-stats | player-stats-weekly | player-compare
+  report                 String
+  /// 0 = Sunday … 6 = Saturday.
+  weekday                Int
+  /// 0–23 in America/New_York.
+  hour                   Int
+  minute                 Int     @default(0)
+  /// Report options. Relative weeks stay as tokens until the report runs.
+  params                 Json
+  enabled                Boolean @default(true)
+  /// YYYY-MM-DD in America/New_York of the last successful post.
+  lastFiredOn            String? @map("last_fired_on")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([guildId, channelId])
+  @@index([enabled])
+  @@map("scheduled_reports")
+}

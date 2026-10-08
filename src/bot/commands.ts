@@ -51,6 +51,7 @@ import {
   statsGrowthCommand,
   statsLeadersCommand,
 } from "./statsCommands.js";
+import { scheduleReportCommand } from "./scheduleCommands.js";
 
 /**
  * Discord now expects `contexts` + `integration_types` on slash commands. Without them, newer apps
@@ -214,6 +215,7 @@ const slashCommandBuilders = [
   statsLeadersCommand,
   statsGrowthCommand,
   playerCompareCommand,
+  scheduleReportCommand,
 ];
 
 export const commands = slashCommandBuilders.map((b) =>
@@ -491,6 +493,7 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
       "• `/player-compare` — compare two or three players side-by-side; choose Auto, text, or image format",
       "• `/stats-leaders` — top-N by a selected metric; add up to three display stats and choose Auto, text, or image format",
       "• `/stats-growth` — largest week-to-week gains or drops between two weeks",
+      "• `/schedule-report` — post any stats report on a weekly Eastern-time schedule in this channel (Manage Server). Weeks can be a number, most recent, or prior week",
     ];
     await interaction.reply({ content: lines.join("\n").slice(0, 2000), ...slashEphemeral(interaction) });
     return;
@@ -709,6 +712,12 @@ export async function handleInteraction(interaction: ChatInputCommandInteraction
   if (commandName === "stats-growth") {
     const { handleStatsGrowthCommand } = await import("./statsCommands.js");
     await handleStatsGrowthCommand(interaction);
+    return;
+  }
+
+  if (commandName === "schedule-report") {
+    const { handleScheduleReportCommand } = await import("./scheduleCommands.js");
+    await handleScheduleReportCommand(interaction);
     return;
   }
 

@@ -11,6 +11,7 @@ import {
 } from "../services/sleeperSync.js";
 import { runMemberStartSnapshot } from "./memberStartSnapshot.js";
 import { getNflState } from "../sleeper/client.js";
+import { runDueScheduledReports } from "../services/stats/scheduledReportRun.js";
 
 /**
  * Rule D: hourly batch — Sleeper transaction + draft polling for subscribed routes.
@@ -58,5 +59,8 @@ export async function runHourlyDigest(client: Client): Promise<void> {
   );
   await maybeSyncWeeklyProjections().catch((err) =>
     log.error("projections_sync_failed", { err: err instanceof Error ? err.message : String(err) }),
+  );
+  await runDueScheduledReports(client).catch((err) =>
+    log.error("scheduled_reports_failed", { err: err instanceof Error ? err.message : String(err) }),
   );
 }

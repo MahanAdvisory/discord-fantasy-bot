@@ -69,7 +69,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         interaction.commandName === "player-stats" ||
         interaction.commandName === "player-stats-mobile" ||
         interaction.commandName === "player-stats-weekly" ||
-        interaction.commandName === "player-compare"
+        interaction.commandName === "player-compare" ||
+        interaction.commandName === "schedule-report"
       ) {
         await handlePlayerStatsAutocomplete(interaction);
       }
